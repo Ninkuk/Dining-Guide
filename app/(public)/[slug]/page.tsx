@@ -19,8 +19,8 @@ type Params = { slug: string }
 
 const NOTE_BLOCKS = [
   { key: 'pros', label: "What's good" },
-  { key: 'cons', label: 'What to know' },
-  { key: 'recommendations', label: 'If you go' },
+  { key: 'cons', label: "What's not" },
+  { key: 'recommendations', label: "When you go" },
 ] as const
 
 export async function generateMetadata({ params }: { params: Promise<Params> }) {
