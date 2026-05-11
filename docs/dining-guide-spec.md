@@ -8,7 +8,7 @@ A personal CRUD web app to replace a Google Sheet of restaurants I've visited an
 
 - **Framework:** Next.js 16 (App Router, TypeScript, Cache Components on)
 - **DB + Backend:** Supabase (Postgres + JS client + RLS + Supabase Auth)
-- **Auth:** Supabase Auth, magic link to a single admin user
+- **Auth:** Supabase Auth, email + password for a single admin user
 - **Hosting:** Vercel (Hobby tier)
 - **Map:** `react-leaflet` v5 + Leaflet 1.x + OpenStreetMap tiles (no API key)
 - **Geocoding:** Nominatim (free; called from a server-side proxy at write time only; respects 1 req/sec)
@@ -150,8 +150,7 @@ Server actions call `supabase.rpc('upsert_restaurant_with_locations', { payload 
 | `/[slug]`        | Restaurant detail + mini-map of its locations                         | Public read           |
 | `/new`           | Create restaurant                                                     | Auth-required (admin) |
 | `/[slug]/edit`   | Edit restaurant + its locations                                       | Auth-required (admin) |
-| `/auth/login`    | Magic-link request form                                               | —                     |
-| `/auth/callback` | Supabase auth code → session exchange                                 | —                     |
+| `/auth/login`    | Email + password sign-in form                                         | —                     |
 | `/auth/logout`   | `signOut` then redirect                                               | —                     |
 | `/api/geocode`   | Nominatim proxy (search + reverse), with 1.1s queue and Runtime Cache | —                     |
 
@@ -159,8 +158,9 @@ Note: paths use `/auth/*` (not the spec's original `/login`) to match the existi
 
 ## Auth Model
 
-- **Supabase Auth** with magic link (`signInWithOtp({ email })`). One admin user provisioned manually via Supabase dashboard.
-- **Signups disabled** in Supabase project settings → without this, anyone could `signInWithOtp` from any email and become "authenticated" with write access via RLS policy.
+- **Supabase Auth** with email + password (`signInWithPassword({ email, password })`). One admin user provisioned manually via Supabase dashboard; password set via the dashboard's reset flow.
+- **Signups disabled** in Supabase project settings → without this, anyone could create an account and become "authenticated" with write access via RLS policy. (Originally protected against `signInWithOtp` from any email; still required with password auth because `auth.signUp` would otherwise be open.)
+- **Leaked-password protection enabled** in Supabase (Auth → Policies → "Prevent use of leaked passwords") — relevant now that a password is in play; was a deliberate no-op under the prior magic-link model.
 - `lib/supabase/proxy.ts` (Next 16 renamed middleware → proxy) calls `supabase.auth.getClaims()` on **every** request to refresh the session cookie, but only **redirects to `/auth/login`** when the path matches `/new`, `/(\w+)/edit`, or write API routes. Public pages remain public for unauthenticated visitors.
 - **No `SUPABASE_SERVICE_ROLE_KEY` in app code.** Auth + RLS handle all runtime writes. The service role key is only used by the local CSV migration script.
 
@@ -349,8 +349,8 @@ All migrated entries get `status = 'visited'`; `want_to_try` is reserved for new
     /_actions/restaurants.ts  # createRestaurant, updateRestaurant, deleteRestaurant
   /auth
     /login/page.tsx
-    /callback/route.ts
     /logout/route.ts
+    _actions.ts               # signIn (signInWithPassword)
   /api
     /geocode/route.ts         # server-side Nominatim proxy with queue + Runtime Cache
   layout.tsx                  # ThemeProvider, Header, sonner Toaster, metadata
@@ -459,7 +459,7 @@ Reads are public. Writes are protected by:
 - [ ] Photo upload resizes images client-side to ≤1200px wide and ≤200KB before upload; replacing a photo deletes the old object from Storage in the same server action.
 - [ ] Address autocomplete returns suggestions; selecting one prefills `latitude`, `longitude`, **and** `address` (from `display_name`); the form's server action does not re-geocode when lat/lng are already provided.
 - [ ] Public visitors can read everything; visiting `/new` or `/[slug]/edit` while unauthenticated redirects to `/auth/login`.
-- [ ] Magic-link login works; logout returns to `/`.
+- [ ] Email + password login works for the admin user; bad credentials surface a generic "invalid email or password" without leaking which one was wrong; logout returns to `/`.
 - [ ] Geocoding only happens at write-time. `/map` view makes zero Nominatim calls.
 - [ ] `/api/geocode` enforces the 1.1s rate limit even under rapid autocomplete typing.
 - [ ] Server actions throw on `VERCEL_ENV === 'preview'`.
@@ -584,8 +584,8 @@ Locked decisions from the design grilling. Each entry: chosen option + one-line 
 | #   | Topic                       | Decision                                                                                                                                                                        | Why                                                                               |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | 1   | Auth model                  | Supabase Auth (not custom password+cookie)                                                                                                                                      | RLS becomes the safety net; less custom code; `@supabase/ssr` already scaffolded. |
-| 2   | Login method                | Magic link                                                                                                                                                                      | No credentials to manage; free; great UX for occasional admin login.              |
-| 3   | Auth route paths            | `/auth/login`, `/auth/callback`, `/auth/logout`                                                                                                                                 | Matches scaffold; cleaner grouping than spec's flat `/login`.                     |
+| 2   | Login method                | Email + password (`signInWithPassword`) — **superseded magic link on 2026-05-10**                                                                                               | Faster sign-in (no inbox round-trip); works on devices where the admin email isn't logged in; password manager handles the UX. |
+| 3   | Auth route paths            | `/auth/login`, `/auth/logout` (callback removed when magic-link was retired)                                                                                                    | Matches scaffold; cleaner grouping than spec's flat `/login`.                     |
 | 4   | RLS shape                   | Anon SELECT, authenticated ALL; signups disabled; service-role-key script-only                                                                                                  | Simplest correct setup for single admin.                                          |
 | 5   | Write dispatch              | Server Actions                                                                                                                                                                  | App Router idiom; pairs with `updateTag` and `redirect`.                          |
 | 6   | Atomicity                   | Postgres RPC `upsert_restaurant_with_locations`                                                                                                                                 | True transactions; clean two-table edit logic in SQL.                             |
@@ -618,3 +618,4 @@ Locked decisions from the design grilling. Each entry: chosen option + one-line 
 | 30  | Spend / vibe two-axis       | Replace `occasion` (free text) with two enums: `occasion in ('Quick','Casual','Elevated','Fine Dine')` + `wallet in ('Cheap','Normal','Splurge','Big night')`                    | Avoids inflation-broken $$$ system; separates conflated dimensions.               |
 | 31  | Schema cleanups             | (a) drop `'not_sure'` from `vegetarian`, use NULL; (b) tighten `rating` to `1..5`; (c) keep `address` on `locations`, populate from Nominatim `display_name`; (d) `updated_at` on `locations` | Removes redundant states; aligns ranges with reality; provides street-level recall. |
 | 32  | Photos                      | Add `photo_url text NULL` on `restaurants` + Supabase Storage bucket `restaurant-photos`. Single hero photo; gallery deferred                                                    | Visual recall is core to a dining guide; opportunistic add as you re-encounter places. |
+| 33  | Auth: password over magic link (2026-05-10) | Switched `/auth/login` from `signInWithOtp` to `signInWithPassword`. Deleted `/auth/callback`. Login surfaces a generic `invalid-credentials` error to avoid email enumeration. `next` query param validated to start with `/`. Leaked-password protection enabled in Supabase. Existing admin user gets a password via dashboard reset flow. | Magic-link round-trip got tedious; password manager fills both fields in one click; works on devices where the admin inbox isn't logged in. Signups stay disabled, so the threat model is unchanged. |
