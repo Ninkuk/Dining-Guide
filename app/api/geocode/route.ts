@@ -29,6 +29,15 @@ function write(key: string, value: unknown): void {
   cache.set(key, { ts: Date.now(), value })
 }
 
+/** Accept a `minLon,minLat,maxLon,maxLat` viewbox; ignore anything malformed. */
+function parseViewbox(raw: string | null): string | undefined {
+  if (!raw) return undefined
+  const parts = raw.split(',')
+  if (parts.length !== 4) return undefined
+  if (parts.some((p) => !Number.isFinite(Number(p)))) return undefined
+  return raw
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const q = url.searchParams.get('q')?.trim()
@@ -36,14 +45,15 @@ export async function GET(req: Request) {
     return NextResponse.json([], { status: 200 })
   }
 
-  const key = q.toLowerCase()
+  const viewbox = parseViewbox(url.searchParams.get('viewbox'))
+  const key = `${q.toLowerCase()}|${viewbox ?? ''}`
   const cached = read(key)
   if (cached) {
     return NextResponse.json(cached, { headers: { 'x-cache': 'hit' } })
   }
 
   try {
-    const results = await geocodeAutocomplete(q, 5)
+    const results = await geocodeAutocomplete(q, 5, viewbox)
     write(key, results)
     return NextResponse.json(results, { headers: { 'x-cache': 'miss' } })
   } catch (err) {

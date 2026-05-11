@@ -68,12 +68,12 @@ Do not introduce new chromatic accents without revisiting this file.
 
 ## Restaurant detail page (`/[slug]`)
 
-Redesigned via Design Lab on 2026-05-10 ("Variant F — editorial column, facts up top"; spec lives in `DESIGN_PLAN.md` until that work merges). The page is an **editorial single column**, `max-w-2xl`, same token vocabulary as `/`.
+Redesigned via Design Lab on 2026-05-10 ("Variant F — editorial column, facts up top"; shipped — commits `973362b`/`536db4d`). The page is an **editorial single column**, `max-w-2xl`, same token vocabulary as `/`.
 
 - **Header order, top to bottom:** `← Restaurants` back-link → cuisine kicker line → `font-heading` H1 name → verdict row (`StarRating` · `StatusIndicator` · visited date in mono · `· chain` in mono — rating and status on the same Y axis) → **attribute pill row** → actions row (`ShareButton` + auth-gated `EditButton`).
 - **Cuisine appears once** — as the uppercase `tracking-[0.18em]` kicker line above the title, each cuisine prefixed with its emoji (`{emoji} {NAME}  ·  {emoji} {NAME}`), exactly like `RestaurantCardCompact`. No `CuisineBadge` row on the detail page.
 - **Photo is supplementary and comes _after_ the header**, not as a hero crown — an `aspect-[3/1]` band, `rounded-2xl ring-1 ring-foreground/10`, rendered only when `photo_url` exists. The page must look composed with no photo.
-- **The note (`notes`) is the centrepiece**, rendered as plain prose: `text-lg leading-relaxed whitespace-pre-wrap`, unlabeled. `pros` / `cons` / `recommendations` follow as **borderless** blocks (`border-b border-border/60 py-5`), each with a kicker label — and the labels are **"What's good" / "What to know" / "If you go"**, not "Pros/Cons/Recommendations". No card chrome anywhere in the writing section.
+- **The note (`notes`) is the centrepiece**, rendered as plain prose: `text-lg leading-relaxed whitespace-pre-wrap`, unlabeled. `pros` / `cons` / `recommendations` follow as **borderless** blocks (`border-b border-border/60 py-5`), each with a kicker label — and the labels are **"What's good" / "What's not" / "When you go"**, not "Pros/Cons/Recommendations". No card chrome anywhere in the writing section.
 - **`Where` section:** kicker + hairline (`border-b border-border/60 pb-3`), a locations list (`MapPin` + city · locality / address line), then a `h-[300px]` mini-map (`RestaurantMap`, `gestureHandling`, `ring-1 ring-foreground/10`). When nothing is geocoded, show a one-line note instead of an empty Leaflet. When there are no locations at all, just the "No specific locations recorded yet." line.
 
 ### Attribute pills pattern
@@ -85,6 +85,21 @@ The five attributes (Occasion 🍽️ · Wallet 💸 · Vegetarian 🥦 · Halal
 ### Sharing
 
 `components/ShareButton.tsx` (`'use client'`): one quiet affordance — `navigator.share({ title, url })` when available, else copy the URL to the clipboard and `toast.success('Link copied')` (`sonner`; the layout already mounts `<Toaster />`). `Share2` icon. URL is `https://dining.ninkuk.com/{slug}`.
+
+## Admin forms (`/new`, `/[slug]/edit` — the `RestaurantForm`)
+
+Redesigned via Design Lab on 2026-05-11 ("Variant A — Editorial column"; shipped). The form is an **editorial single-column compose view**, `max-w-2xl`, same vocabulary as `/` and `/[slug]` — **not** a stock shadcn form. It is a re-skin + re-grouping only: `restaurantSchema`, the server actions, every field name, and the sub-components' logic are untouched.
+
+- **No `<Separator />` between sections.** Sections are "movements" with the kicker + hairline header pattern (`text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground` over `border-b border-border/60 pb-2.5`), optionally with a right-aligned `text-[11px] text-muted-foreground/70` hint. Order is fixed: **The basics → The write-up → Details → Where → Photo.** (A small local `Movement` helper inside `RestaurantForm.tsx` is fine — but no shared `<Kicker>`/`<SectionHeading>` primitive; see "Don't abstract the kicker".)
+- **Page header** (lives in the page wrappers, not the form): `BackLink` → kicker (`New entry` / `Editing`) → `font-heading text-4xl sm:text-5xl` H1 (`Add a restaurant` / the restaurant's name) → one muted intro line. Container `max-w-2xl` + `pb-24` (so the sticky bar can't cover content).
+- **Hierarchy: Name is the loud field** — `<Input className="h-11 text-lg font-medium">`. Everything else sits below it in normal weight.
+- **Slug is derived & read-only** (TODO item shipped): no slug input; shown as a `font-mono text-xs text-muted-foreground` `/{slug} · derived from the name` line under the name. Still in form state via a hidden input; auto-derived from name in `create` mode only (in `edit` mode the slug = the live URL, never re-derived on rename). The schema's slug regex/reserved errors surface under the **name** input.
+- **The write-up is the centre.** `notes` is the hero — labelled **"The note"** (never "Notes"), a generous `rows={6}`+ `resize-y` `text-base leading-relaxed` textarea, full width, second in the form (right after The basics, before Details). `pros`/`cons`/`recommendations` follow as smaller `rows={2}` stacked siblings (not a 2-col grid) labelled **"What's good" / "What's not" / "When you go"** — the exact `/[slug]` labels; never "Pros/Cons/Recommendations" in the UI. (DB columns keep their names.)
+- **Star input has hover-fill** (TODO item shipped): on hover, dim-fill (`fill-amber-400/35 stroke-amber-500/60`) the stars up to the hovered one; already-set stars stay solid amber.
+- **Sticky save bar** — `sticky bottom-0 z-10`, `border-t border-border bg-background/85 backdrop-blur` (the band may use `-mx-5 px-5` to span the gutter), Cancel + Save right-aligned, "Editing {name}" / "New entry" muted on the left (`sm:` and up). Save stays `type="submit"`. **Delete (edit mode only) is a quiet `text-destructive` "Delete this entry" button at the very bottom, outside the sticky bar** — it opens the existing `AlertDialog` confirm (with the location-count copy). It is *not* a primary affordance.
+- **Locations:** light rows — `rounded-xl bg-card p-4 ring-1 ring-foreground/10`, **no per-row uppercase "LOCATION n" header**; "Add location" is a small `variant="outline" size="sm"` button. Keep the editable city/locality inputs + `AddressAutocomplete`. **No map inside the form** (geocoding happens on save).
+- **Photo is last and clearly optional** — its own movement with the hint "optional — the page works without one"; the form must look composed with zero photo.
+- **Do not add:** a live preview pane (rejected — weak on mobile, which is the primary platform), a multi-step wizard, a dense two-column layout, a bottom attribute-pill strip (the lab mockup showed one; it was explicitly cut), keyboard shortcuts.
 
 ## Repo conventions (load-bearing)
 
@@ -98,4 +113,4 @@ The five attributes (Occasion 🍽️ · Wallet 💸 · Vegetarian 🥦 · Halal
 
 ---
 
-*Last updated 2026-05-10 (restaurant detail page redesign — Variant F; see `DESIGN_PLAN.md`).*
+*Last updated 2026-05-11 (admin Add/Edit form redesign — Variant A).*

@@ -20,13 +20,25 @@ export default function EditRestaurantPage({
   params: Promise<Params>
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:py-8">
-      <BackLink />
-      <h1 className="text-2xl font-medium tracking-tight">Edit restaurant</h1>
-      <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-6 sm:py-8">
+      <Suspense fallback={<EditSkeleton />}>
         <FormHost params={params} />
       </Suspense>
     </div>
+  )
+}
+
+function EditSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-12 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+      <Skeleton className="h-[600px] w-full rounded-2xl" />
+    </>
   )
 }
 
@@ -67,5 +79,21 @@ async function FormHost({ params }: { params: Promise<Params> }) {
     })),
   }
 
-  return <RestaurantForm mode="edit" defaultValues={defaults} cuisineOptions={cuisines} />
+  return (
+    <>
+      <header className="flex flex-col gap-3">
+        <BackLink />
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Editing
+        </p>
+        <h1 className="font-heading text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+          {restaurant.name}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Update anything below. Only the name is required.
+        </p>
+      </header>
+      <RestaurantForm mode="edit" defaultValues={defaults} cuisineOptions={cuisines} />
+    </>
+  )
 }

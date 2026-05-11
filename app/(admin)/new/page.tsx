@@ -29,9 +29,20 @@ const DEFAULTS: RestaurantInput = {
 
 export default function NewRestaurantPage() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:py-8">
-      <BackLink />
-      <h1 className="text-2xl font-medium tracking-tight">Add restaurant</h1>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-6 sm:py-8">
+      <header className="flex flex-col gap-3">
+        <BackLink />
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          New entry
+        </p>
+        <h1 className="font-heading text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+          Add a restaurant
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Five movements — the basics, your write-up, the details, where it is, and (optionally)
+          a photo. Nothing here is required except a name.
+        </p>
+      </header>
       <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
         <FormHost />
       </Suspense>

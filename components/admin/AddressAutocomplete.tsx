@@ -19,12 +19,29 @@ type NominatimResult = {
 
 const DEBOUNCE_MS = 300
 
+// Default search box: roughly the state of Arizona. `/api/geocode` searches
+// inside the box first and only falls back to an unrestricted search if that
+// finds nothing — so AZ places win, but a trip restaurant still resolves.
+// Replaced with a tighter box around the user's actual location once
+// geolocation resolves. (When this row already has a City, that's appended to
+// the query, which is the strongest signal of all.)
+const ARIZONA_VIEWBOX = '-114.85,31.30,-109.00,37.05'
+
+function boxAround(lat: number, lon: number): string {
+  const d = 0.6 // ~50–65 km each way
+  const f = (n: number) => n.toFixed(4)
+  return `${f(lon - d)},${f(lat - d)},${f(lon + d)},${f(lat + d)}`
+}
+
 export function AddressAutocomplete({
   value,
+  city,
   onPick,
   placeholder = 'Search address…',
 }: {
   value: string | null
+  /** The City entered for this location row, if any — appended to the query to bias results. */
+  city?: string | null
   onPick: (pick: AddressPick | null) => void
   placeholder?: string
 }) {
@@ -33,8 +50,10 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [viewbox, setViewbox] = useState<string>(ARIZONA_VIEWBOX)
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const askedLocation = useRef(false)
 
   // Mirror the `value` prop when the parent resets it externally.
   // Pattern from https://react.dev/reference/react/useState#storing-information-from-previous-renders.
@@ -47,6 +66,19 @@ export function AddressAutocomplete({
   // Derive what to render — keeps the effect free of synchronous setState.
   const visibleResults = query.trim().length < 3 ? [] : results
 
+  function requestLocationOnce() {
+    if (askedLocation.current) return
+    askedLocation.current = true
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setViewbox(boxAround(pos.coords.latitude, pos.coords.longitude)),
+      () => {
+        /* denied / unavailable / timed out — keep the Arizona fallback */
+      },
+      { timeout: 5000, maximumAge: 10 * 60 * 1000 },
+    )
+  }
+
   useEffect(() => {
     if (query.trim().length < 3) return
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -56,10 +88,13 @@ export function AddressAutocomplete({
       abortRef.current = ac
       setLoading(true)
       setError(null)
+      const cityHint = city?.trim()
+      const term = cityHint ? `${query.trim()}, ${cityHint}` : query.trim()
       try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
-          signal: ac.signal,
-        })
+        const res = await fetch(
+          `/api/geocode?q=${encodeURIComponent(term)}&viewbox=${encodeURIComponent(viewbox)}`,
+          { signal: ac.signal },
+        )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = (await res.json()) as NominatimResult[]
         setResults(data)
@@ -75,7 +110,7 @@ export function AddressAutocomplete({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [query])
+  }, [query, viewbox, city])
 
   return (
     <div className="relative">
@@ -89,7 +124,10 @@ export function AddressAutocomplete({
             setOpen(true)
             if (e.target.value.trim().length === 0) onPick(null)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true)
+            requestLocationOnce()
+          }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           className="pl-9"
         />
@@ -108,9 +146,7 @@ export function AddressAutocomplete({
                   key={i}
                   role="option"
                   aria-selected={false}
-                  className={cn(
-                    'cursor-pointer px-3 py-2 text-sm hover:bg-accent'
-                  )}
+                  className={cn('cursor-pointer px-3 py-2 text-sm hover:bg-accent')}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     setQuery(r.display_name)

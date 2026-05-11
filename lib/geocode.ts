@@ -90,22 +90,24 @@ export async function geocodeSearch(query: string): Promise<GeocodeHit | null> {
   })
 }
 
-/**
- * Autocomplete: return up to `limit` hits. Used by the AddressAutocomplete combobox.
- */
-export async function geocodeAutocomplete(
-  query: string,
-  limit = 5
+function search(
+  q: string,
+  limit: number,
+  viewbox?: string,
+  bounded = false
 ): Promise<NominatimResult[]> {
-  const trimmed = query.trim()
-  if (trimmed.length < 3) return []
-
   return queue.enqueue(async () => {
     const url = new URL('/search', NOMINATIM_BASE)
-    url.searchParams.set('q', trimmed)
+    url.searchParams.set('q', q)
     url.searchParams.set('format', 'jsonv2')
     url.searchParams.set('limit', String(limit))
     url.searchParams.set('addressdetails', '0')
+    if (viewbox) {
+      url.searchParams.set('viewbox', viewbox)
+      // bounded=1 actually *restricts* to the box; the soft bias (bounded=0) is
+      // too weak to surface a local match over globally "important" ones.
+      if (bounded) url.searchParams.set('bounded', '1')
+    }
 
     const res = await fetch(url, {
       headers: {
@@ -118,4 +120,27 @@ export async function geocodeAutocomplete(
     }
     return (await res.json()) as NominatimResult[]
   })
+}
+
+/**
+ * Autocomplete: return up to `limit` hits. Used by the AddressAutocomplete combobox.
+ *
+ * When `viewbox` (a `minLon,minLat,maxLon,maxLat` string) is given, first try a
+ * search restricted to that box; if it finds nothing (e.g. a restaurant from a
+ * trip, logged from home), fall back to an unrestricted search so the query
+ * still resolves.
+ */
+export async function geocodeAutocomplete(
+  query: string,
+  limit = 5,
+  viewbox?: string
+): Promise<NominatimResult[]> {
+  const trimmed = query.trim()
+  if (trimmed.length < 3) return []
+
+  if (viewbox) {
+    const local = await search(trimmed, limit, viewbox, true)
+    if (local.length > 0) return local
+  }
+  return search(trimmed, limit)
 }
