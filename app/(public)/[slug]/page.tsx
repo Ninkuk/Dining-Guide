@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackLink } from '@/components/BackLink'
 import { CuisineBadge } from '@/components/CuisineBadge'
 import { StarRating } from '@/components/StarRating'
 import { StatusIndicator } from '@/components/StatusIndicator'
 import { RestaurantMap } from '@/components/RestaurantMap'
 import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils'
 import { getRestaurantBySlug } from '@/lib/queries/restaurants'
 import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
 
@@ -59,6 +61,7 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
 
   return (
     <article className="flex flex-col gap-6">
+      <BackLink />
       {r.photo_url ? (
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border">
           <Image
@@ -71,7 +74,7 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
         </div>
       ) : null}
 
-      <header className="flex flex-col gap-3">
+      <header className={cn('flex flex-col gap-3', !r.photo_url && 'pt-2 sm:pt-4')}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1.5">
             <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">

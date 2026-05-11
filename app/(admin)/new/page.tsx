@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { BackLink } from '@/components/BackLink'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RestaurantForm } from '@/components/admin/RestaurantForm'
 import { getCuisines } from '@/lib/queries/cuisines'
@@ -29,6 +30,7 @@ const DEFAULTS: RestaurantInput = {
 export default function NewRestaurantPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:py-8">
+      <BackLink />
       <h1 className="text-2xl font-medium tracking-tight">Add restaurant</h1>
       <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
         <FormHost />

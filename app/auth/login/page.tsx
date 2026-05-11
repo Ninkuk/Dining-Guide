@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { signIn } from '../_actions'
+import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,7 +29,8 @@ export default function LoginPage({
   searchParams: SearchParams
 }) {
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-16">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-16">
+      <BackLink className="self-start" />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>

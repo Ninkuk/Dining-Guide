@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { BackLink } from '@/components/BackLink'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   CityBar,
@@ -21,6 +22,7 @@ const MIN_ROWS_FOR_CHARTS = 3
 export default function StatsPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:py-8">
+      <BackLink />
       <h1 className="text-2xl font-medium tracking-tight">Stats</h1>
       <Suspense fallback={<StatsSkeleton />}>
         <StatsBody />
