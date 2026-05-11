@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, ChevronsUpDown, Plus, X } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 import {
   Command,
   CommandEmpty,
@@ -14,13 +14,25 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { EmojiPalette } from '@/components/admin/EmojiPalette'
 import { toast } from 'sonner'
-import { createCuisine } from '@/app/(admin)/_actions/cuisines'
-import { cn } from '@/lib/utils'
+import { createCuisine, cuisineUsage, deleteCuisine } from '@/app/(admin)/_actions/cuisines'
+import { titleCase } from '@/lib/cuisines'
 
 export type CuisineOption = { name: string; emoji: string }
+
+type Usage = { count: number; sample: string[] }
 
 export function CuisineCombobox({
   options,
@@ -42,6 +54,11 @@ export function CuisineCombobox({
     setLocalOptions(options)
   }
 
+  // Delete-confirm state.
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [usage, setUsage] = useState<Usage | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const lookup = new Map(localOptions.map((o) => [o.name.toLowerCase(), o]))
   const hasExact = !!lookup.get(query.trim().toLowerCase())
 
@@ -54,45 +71,78 @@ export function CuisineCombobox({
     onChange(value.filter((v) => v !== name))
   }
 
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1.5">
-        {value.length === 0 ? (
-          <span className="text-xs text-muted-foreground">No cuisines selected</span>
-        ) : null}
-        {value.map((name) => {
-          const opt = localOptions.find((o) => o.name === name)
-          return (
-            <Badge key={name} variant="secondary" className="rounded-full pr-1">
-              <span className="mr-1">{opt?.emoji ?? '🍽️'}</span>
-              {name}
-              <button
-                type="button"
-                aria-label={`Remove ${name}`}
-                className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/10"
-                onClick={() => remove(name)}
-              >
-                <X className="size-3" />
-              </button>
-            </Badge>
-          )
-        })}
-      </div>
+  async function openDelete(name: string) {
+    setOpen(false)
+    setPendingDelete(name)
+    setUsage(null)
+    try {
+      setUsage(await cuisineUsage(name))
+    } catch {
+      setUsage({ count: 0, sample: [] }) // fall back to the plain confirm
+    }
+  }
 
+  async function confirmDelete() {
+    const name = pendingDelete
+    if (!name) return
+    setDeleting(true)
+    const res = await deleteCuisine(name)
+    setDeleting(false)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    setLocalOptions((prev) => prev.filter((o) => o.name !== name))
+    if (value.includes(name)) onChange(value.filter((v) => v !== name))
+    const n = res.data?.untaggedFrom ?? 0
+    toast.success(
+      n > 0
+        ? `Deleted "${name}" — untagged ${n} restaurant${n === 1 ? '' : 's'}`
+        : `Deleted "${name}"`,
+    )
+    setPendingDelete(null)
+    setUsage(null)
+  }
+
+  return (
+    <>
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="justify-between"
-          >
-            Add cuisine
-            <ChevronsUpDown className="size-4 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {value.length === 0 ? (
+            <span className="text-xs text-muted-foreground">No cuisines selected</span>
+          ) : null}
+          {value.map((name) => {
+            const opt = localOptions.find((o) => o.name === name)
+            return (
+              <Badge key={name} variant="secondary" className="rounded-full pr-1">
+                <span className="mr-1">{opt?.emoji ?? '🍽️'}</span>
+                {name}
+                <button
+                  type="button"
+                  aria-label={`Remove ${name}`}
+                  className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/10"
+                  onClick={() => remove(name)}
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            )
+          })}
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              role="combobox"
+              aria-expanded={open}
+              className="rounded-full"
+            >
+              <Plus className="size-3.5" />
+              add cuisine
+            </Button>
+          </PopoverTrigger>
+        </div>
+        <PopoverContent className="w-72 p-0" align="start">
           <Command>
             <CommandInput
               placeholder="Search or add cuisine…"
@@ -101,16 +151,14 @@ export function CuisineCombobox({
             />
             <CommandList>
               <CommandEmpty>
-                <div className="px-2 py-3 text-xs text-muted-foreground">
-                  No matches.
-                </div>
+                <div className="px-2 py-3 text-xs text-muted-foreground">No matches.</div>
               </CommandEmpty>
               <CommandGroup>
                 {localOptions
                   .filter((o) =>
                     query.trim() === ''
                       ? true
-                      : o.name.toLowerCase().includes(query.toLowerCase())
+                      : o.name.toLowerCase().includes(query.toLowerCase()),
                   )
                   .map((opt) => {
                     const selected = value.includes(opt.name)
@@ -118,16 +166,24 @@ export function CuisineCombobox({
                       <CommandItem
                         key={opt.name}
                         value={opt.name}
+                        data-checked={selected ? 'true' : undefined}
                         onSelect={() => toggle(opt.name)}
                       >
-                        <Check
-                          className={cn(
-                            'mr-2 size-4',
-                            selected ? 'opacity-100' : 'opacity-0'
-                          )}
-                        />
-                        <span className="mr-2">{opt.emoji}</span>
-                        {opt.name}
+                        <span className="inline-flex w-6 shrink-0 items-center justify-center text-base leading-none">
+                          {opt.emoji}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{opt.name}</span>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${opt.name}`}
+                          className="shrink-0 rounded p-1 text-muted-foreground/50 transition-colors hover:text-destructive focus-visible:text-destructive focus-visible:outline-none"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDelete(opt.name)
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
                       </CommandItem>
                     )
                   })}
@@ -137,7 +193,9 @@ export function CuisineCombobox({
                   <CreateCuisineDialog
                     initialName={query.trim()}
                     onCreated={(c) => {
-                      setLocalOptions((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)))
+                      setLocalOptions((prev) =>
+                        [...prev, c].sort((a, b) => a.name.localeCompare(b.name)),
+                      )
                       onChange([...value, c.name])
                       setQuery('')
                       setOpen(false)
@@ -149,7 +207,45 @@ export function CuisineCombobox({
           </Command>
         </PopoverContent>
       </Popover>
-    </div>
+
+      <AlertDialog
+        open={pendingDelete != null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPendingDelete(null)
+            setUsage(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &ldquo;{pendingDelete}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {usage == null
+                ? 'Checking where it’s used…'
+                : usage.count === 0
+                  ? 'No restaurants use this cuisine. This can’t be undone.'
+                  : `Used by ${usage.count} restaurant${usage.count === 1 ? '' : 's'} (${usage.sample.join(', ')}${usage.count > usage.sample.length ? ', …' : ''}). Deleting it removes the “${pendingDelete}” tag from all of them. This can’t be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting || usage == null}
+              onClick={confirmDelete}
+            >
+              {deleting
+                ? 'Deleting…'
+                : usage && usage.count > 0
+                  ? 'Delete & untag'
+                  : 'Delete'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
@@ -161,16 +257,16 @@ function CreateCuisineDialog({
   onCreated: (c: CuisineOption) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState(initialName)
+  const [name, setName] = useState(() => titleCase(initialName))
   const [emoji, setEmoji] = useState('🍽️')
   const [pending, setPending] = useState(false)
 
   // When `initialName` changes (user retypes in the combobox), reset the name
-  // field. Inline pattern rather than effect to satisfy React Compiler.
+  // field. Inline pattern rather than an effect to satisfy React Compiler.
   const [prevInitial, setPrevInitial] = useState(initialName)
   if (prevInitial !== initialName) {
     setPrevInitial(initialName)
-    setName(initialName)
+    setName(titleCase(initialName))
   }
 
   async function submit(e: React.FormEvent) {
@@ -191,7 +287,7 @@ function CreateCuisineDialog({
       <DialogTrigger asChild>
         <CommandItem onSelect={() => setOpen(true)}>
           <Plus className="mr-2 size-4" />
-          Create &ldquo;{initialName}&rdquo;
+          Create &ldquo;{titleCase(initialName)}&rdquo;
         </CommandItem>
       </DialogTrigger>
       <DialogContent>
@@ -204,19 +300,20 @@ function CreateCuisineDialog({
             <Input
               id="cuisine-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(titleCase(e.target.value))}
               autoFocus
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cuisine-emoji">Emoji</Label>
-            <Input
-              id="cuisine-emoji"
-              value={emoji}
-              onChange={(e) => setEmoji(e.target.value)}
-              maxLength={6}
-              placeholder="🍽️"
-            />
+            <div className="flex items-center gap-2">
+              <Label>Emoji</Label>
+              <span className="text-xl leading-none" aria-hidden>
+                {emoji}
+              </span>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <EmojiPalette value={emoji} className="h-64" onSelect={setEmoji} />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

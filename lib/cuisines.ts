@@ -66,8 +66,77 @@ export const CUISINE_EMOJI: Record<string, string> = {
   Vietnamese: '🍜',
 }
 
+/**
+ * Curated palette for the "new cuisine" emoji picker — food, drink, place, and
+ * origin-flag glyphs only, not the whole Unicode set. Grouped for scanning.
+ * (Superset of the values in CUISINE_EMOJI plus sensible extras.)
+ */
+export const CUISINE_EMOJI_CHOICES: readonly { label: string; emojis: readonly string[] }[] = [
+  {
+    label: 'Dishes',
+    emojis: [
+      '🍽️', '🍴', '🥄', '🍛', '🍚', '🍜', '🍝', '🍲', '🥘', '🥣',
+      '🍣', '🍱', '🍙', '🍢', '🥟', '🥡', '🍤', '🍕', '🍔', '🌭',
+      '🥪', '🌮', '🌯', '🫔', '🥙', '🧆', '🥗', '🍳', '🥓', '🥩',
+      '🍖', '🍗', '🦴', '🦐', '🦞', '🦀', '🦪', '🐟', '🍠', '🍿',
+    ],
+  },
+  {
+    label: 'Produce',
+    emojis: [
+      '🥑', '🍆', '🥒', '🥬', '🥦', '🌶️', '🫑', '🌽', '🥕', '🧅',
+      '🧄', '🥔', '🍅', '🍄', '🫒', '🌰', '🥜', '🫘',
+    ],
+  },
+  {
+    label: 'Bread & sweets',
+    emojis: [
+      '🍞', '🥖', '🥐', '🥨', '🥯', '🫓', '🧇', '🥞', '🧈', '🧀',
+      '🍰', '🎂', '🧁', '🥧', '🍮', '🍪', '🍩', '🍫', '🍬', '🍭',
+      '🍡', '🍦', '🍨', '🍧', '🥮', '🍯',
+    ],
+  },
+  {
+    label: 'Drinks',
+    emojis: [
+      '☕', '🍵', '🫖', '🧋', '🧃', '🥤', '🥛', '🍶', '🍾', '🍷',
+      '🍸', '🍹', '🍺', '🍻', '🥂', '🥃', '🧉', '🫗',
+    ],
+  },
+  {
+    label: 'Fruit & place',
+    emojis: [
+      '🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🥭', '🍎', '🍐',
+      '🍑', '🍒', '🍓', '🫐', '🥝', '🥥', '🌴', '🏝️', '🌺', '🌿',
+      '🌱', '🔥', '⛩️', '🐃', '🦙', '☘️',
+    ],
+  },
+  {
+    label: 'Flags',
+    emojis: [
+      '🇺🇸', '🇲🇽', '🇨🇦', '🇧🇷', '🇦🇷', '🇵🇪', '🇨🇺', '🇯🇲', '🇮🇹', '🇫🇷',
+      '🇪🇸', '🇵🇹', '🇬🇷', '🇩🇪', '🇬🇧', '🇮🇪', '🇨🇳', '🇯🇵', '🇰🇷', '🇹🇭',
+      '🇻🇳', '🇵🇭', '🇮🇩', '🇲🇾', '🇸🇬', '🇮🇳', '🇧🇩', '🇵🇰', '🇱🇰', '🇹🇷',
+      '🇱🇧', '🇮🇷', '🇸🇦', '🇮🇱', '🇪🇬', '🇪🇹', '🇲🇦', '🇦🇺',
+    ],
+  },
+]
+
 export function getCuisineEmoji(name: string): string {
   return CUISINE_EMOJI[name] ?? FALLBACK_EMOJI
+}
+
+/**
+ * Title-case a cuisine name: lowercase, then capitalize the first letter of
+ * each space- or hyphen-separated segment ("tex-mex" → "Tex-Mex",
+ * "middle eastern" → "Middle Eastern"). Acronyms degrade to title-case
+ * ("bbq" → "Bbq") — acceptable because the combobox matches existing cuisines
+ * case-insensitively, so you almost never reach the "create new" path for one.
+ */
+export function titleCase(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/(^|[\s-])(\p{L})/gu, (_match, sep: string, ch: string) => sep + ch.toUpperCase())
 }
 
 export function getKnownCuisines(): readonly string[] {
