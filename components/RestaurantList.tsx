@@ -10,14 +10,20 @@ import {
 } from 'nuqs'
 import { Button } from '@/components/ui/button'
 import { FilterPanel } from '@/components/FilterPanel'
-import { RestaurantCard } from '@/components/RestaurantCard'
-import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
+import { RestaurantCardCompact } from '@/components/RestaurantCardCompact'
+import { RestaurantTableView } from '@/components/RestaurantTableView'
+import { RestaurantMapView } from '@/components/RestaurantMapView'
+import { ViewToggle, type View } from '@/components/ViewToggle'
+import type { MapPoint, RestaurantWithLocations } from '@/lib/queries/restaurants'
 
 const SORT_KEYS = ['name', 'rating-desc', 'recent', 'recent-visited'] as const
 export type SortKey = (typeof SORT_KEYS)[number]
 
+const VIEW_KEYS = ['cards', 'table', 'map'] as const
+
 const arrayParser = parseAsArrayOf(parseAsString).withDefault([])
 const sortParser = parseAsStringLiteral(SORT_KEYS).withDefault('name')
+const viewParser = parseAsStringLiteral(VIEW_KEYS).withDefault('cards')
 
 /**
  * Single source of truth for filter/sort/search state.
@@ -29,8 +35,10 @@ const sortParser = parseAsStringLiteral(SORT_KEYS).withDefault('name')
  */
 export function RestaurantList({
   restaurants,
+  points,
 }: {
   restaurants: RestaurantWithLocations[]
+  points: MapPoint[]
 }) {
   const [search, setSearch] = useQueryState(
     'q',
@@ -49,6 +57,7 @@ export function RestaurantList({
     parseAsBoolean.withDefault(false)
   )
   const [sort, setSort] = useQueryState('sort', sortParser)
+  const [view, setView] = useQueryState('view', viewParser)
 
   const facets = useMemo(() => buildFacets(restaurants), [restaurants])
 
@@ -166,15 +175,50 @@ export function RestaurantList({
         filteredCount={filtered.length}
       />
 
+      <ViewToggle value={view} onChange={setView} />
+
       {filtered.length === 0 ? (
         <EmptyResults onClearAll={clearAll} hasActiveFilters={hasActiveFilters} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((r) => (
-            <RestaurantCard key={r.id} restaurant={r} />
-          ))}
-        </div>
+        <ViewPanel view={view} restaurants={filtered} points={points} />
       )}
+    </div>
+  )
+}
+
+function ViewPanel({
+  view,
+  restaurants,
+  points,
+}: {
+  view: View
+  restaurants: RestaurantWithLocations[]
+  points: MapPoint[]
+}) {
+  if (view === 'table') {
+    return (
+      <div role="tabpanel" id="view-panel-table" aria-label="Table view">
+        <RestaurantTableView restaurants={restaurants} />
+      </div>
+    )
+  }
+  if (view === 'map') {
+    return (
+      <div role="tabpanel" id="view-panel-map" aria-label="Map view">
+        <RestaurantMapView restaurants={restaurants} points={points} />
+      </div>
+    )
+  }
+  return (
+    <div
+      role="tabpanel"
+      id="view-panel-cards"
+      aria-label="Cards view"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      {restaurants.map((r) => (
+        <RestaurantCardCompact key={r.id} restaurant={r} />
+      ))}
     </div>
   )
 }
