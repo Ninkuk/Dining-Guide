@@ -45,6 +45,5 @@ export async function createCuisine(
   }
 
   updateTag('cuisines')
-  updateTag('restaurants')
   return { ok: true, data: { name: data.name, emoji: data.emoji } }
 }
