@@ -66,15 +66,36 @@ Do not introduce new chromatic accents without revisiting this file.
 - The dominant signal on each restaurant is **rating + status**, in that order. Photo (if any) is supplementary.
 - Cuisine is the primary filter dimension. City is the second.
 
+## Restaurant detail page (`/[slug]`)
+
+Redesigned via Design Lab on 2026-05-10 ("Variant F — editorial column, facts up top"; spec lives in `DESIGN_PLAN.md` until that work merges). The page is an **editorial single column**, `max-w-2xl`, same token vocabulary as `/`.
+
+- **Header order, top to bottom:** `← Restaurants` back-link → cuisine kicker line → `font-heading` H1 name → verdict row (`StarRating` · `StatusIndicator` · visited date in mono · `· chain` in mono — rating and status on the same Y axis) → **attribute pill row** → actions row (`ShareButton` + auth-gated `EditButton`).
+- **Cuisine appears once** — as the uppercase `tracking-[0.18em]` kicker line above the title, each cuisine prefixed with its emoji (`{emoji} {NAME}  ·  {emoji} {NAME}`), exactly like `RestaurantCardCompact`. No `CuisineBadge` row on the detail page.
+- **Photo is supplementary and comes _after_ the header**, not as a hero crown — an `aspect-[3/1]` band, `rounded-2xl ring-1 ring-foreground/10`, rendered only when `photo_url` exists. The page must look composed with no photo.
+- **The note (`notes`) is the centrepiece**, rendered as plain prose: `text-lg leading-relaxed whitespace-pre-wrap`, unlabeled. `pros` / `cons` / `recommendations` follow as **borderless** blocks (`border-b border-border/60 py-5`), each with a kicker label — and the labels are **"What's good" / "What to know" / "If you go"**, not "Pros/Cons/Recommendations". No card chrome anywhere in the writing section.
+- **`Where` section:** kicker + hairline (`border-b border-border/60 pb-3`), a locations list (`MapPin` + city · locality / address line), then a `h-[300px]` mini-map (`RestaurantMap`, `gestureHandling`, `ring-1 ring-foreground/10`). When nothing is geocoded, show a one-line note instead of an empty Leaflet. When there are no locations at all, just the "No specific locations recorded yet." line.
+
+### Attribute pills pattern
+
+The five attributes (Occasion 🍽️ · Wallet 💸 · Vegetarian 🥦 · Halal 🕌 · Visited/Status 📅) **always all render**, as a wrapping row of pills (`flex flex-wrap gap-2`). Each pill: `rounded-full px-3 py-1 text-sm ring-1`, emoji (`aria-hidden`) + muted label + value.
+- **Known** value → `bg-card text-foreground ring-foreground/10`, label `text-muted-foreground`, value `font-medium`. Yes/no fields render "Yes" / "No".
+- **Missing** value → render the pill grayed out (`bg-muted/60 text-muted-foreground/60 ring-foreground/5`) with the text "Unknown". The fade is a **data-completeness** signal, never a hierarchy one — no attribute is de-emphasised by identity (the old "de-emphasise Occasion" idea is dead). Lives in `components/RestaurantAttributePills.tsx`.
+
+### Sharing
+
+`components/ShareButton.tsx` (`'use client'`): one quiet affordance — `navigator.share({ title, url })` when available, else copy the URL to the clipboard and `toast.success('Link copied')` (`sonner`; the layout already mounts `<Toaster />`). `Share2` icon. URL is `https://dining.ninkuk.com/{slug}`.
+
 ## Repo conventions (load-bearing)
 
 - **Framework:** Next.js 16 App Router, `cacheComponents: true` in `next.config.ts`. Read `node_modules/next/dist/docs/` before assuming any cache, routing, or middleware behavior — this is not the Next.js most code samples are written against.
 - **Folders prefixed with `_` are private** and not routed. Use plain names for any new route segments.
 - **Image whitelist:** `images.remotePatterns` in `next.config.ts` permits only the project's Supabase storage host. Do not add Unsplash or other external hosts without a deliberate decision.
 - **Filter state lives in URL** via `nuqs` (`useQueryState` + parsers). Any new filter dimension must register a parser alongside `q`, `cuisine`, `city`, `rating`, `occasion`, `wallet`, `veg`, `halal`, `status`, `hideChains`, `sort`, and now `view`.
-- **Existing primitives** to reach for first: `Button`, `Badge`, `Card`, `DropdownMenu` (shadcn/ui in `components/ui/`), `CuisineBadge`, `StarRating`, `StatusIndicator`, `AccountMenu` / `BackLink` (project-level in `components/`).
+- **Existing primitives** to reach for first: `Button`, `Badge`, `Card`, `DropdownMenu` (shadcn/ui in `components/ui/`), `CuisineBadge`, `StarRating`, `StatusIndicator`, `AccountMenu` / `BackLink` / `ShareButton` / `RestaurantAttributePills` (project-level in `components/`).
 - **Photo policy:** `next/image` is only viable for Supabase-hosted assets. Anywhere else, use plain `<img>` — but per the photo-agnostic rule, prefer no `<img>` at all on list/index surfaces.
+- **Don't abstract the kicker.** The editorial kicker (`text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground`) is inlined wherever it's used (`EditorialHeader`, `RestaurantCardCompact`, the `/[slug]` header) — there is no `<Kicker>` primitive, and adding one would break with the existing components.
 
 ---
 
-*Last updated 2026-05-10 (app-shell redesign — navbar removed; see `DESIGN_PLAN.md`).*
+*Last updated 2026-05-10 (restaurant detail page redesign — Variant F; see `DESIGN_PLAN.md`).*
