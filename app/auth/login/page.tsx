@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { requestMagicLink } from '../_actions'
+import { signIn } from '../_actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,10 +13,14 @@ import {
 } from '@/components/ui/card'
 
 type SearchParams = Promise<{
-  sent?: string
   error?: string
   next?: string
 }>
+
+const ERROR_MESSAGES: Record<string, string> = {
+  'missing-credentials': 'Enter your email and password.',
+  'invalid-credentials': 'Invalid email or password.',
+}
 
 export default function LoginPage({
   searchParams,
@@ -29,7 +33,7 @@ export default function LoginPage({
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
           <CardDescription>
-            We&rsquo;ll email you a magic link.
+            Enter your email and password to continue.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -47,20 +51,11 @@ async function LoginFormDynamic({
 }: {
   searchParams: SearchParams
 }) {
-  const { sent, error, next } = await searchParams
-
-  if (sent) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Check{' '}
-        <span className="font-medium text-foreground">{sent}</span>{' '}
-        for a sign-in link.
-      </p>
-    )
-  }
+  const { error, next } = await searchParams
+  const errorMessage = error ? (ERROR_MESSAGES[error] ?? 'Sign-in failed.') : null
 
   return (
-    <form action={requestMagicLink} className="flex flex-col gap-4">
+    <form action={signIn} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next ?? '/'} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
@@ -73,12 +68,22 @@ async function LoginFormDynamic({
           placeholder="you@example.com"
         />
       </div>
-      {error ? (
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          autoComplete="current-password"
+        />
+      </div>
+      {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
-          {error}
+          {errorMessage}
         </p>
       ) : null}
-      <Button type="submit">Send magic link</Button>
+      <Button type="submit">Sign in</Button>
     </form>
   )
 }
@@ -88,6 +93,10 @@ function LoginFormSkeleton() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-16" />
         <Skeleton className="h-9 w-full" />
       </div>
       <Skeleton className="h-9 w-full" />

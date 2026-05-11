@@ -1,48 +1,31 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-function buildOrigin(headerList: Headers): string {
-  // x-forwarded-* set by Vercel and most reverse proxies.
-  const proto = headerList.get('x-forwarded-proto') ?? 'http'
-  const host =
-    headerList.get('x-forwarded-host') ??
-    headerList.get('host') ??
-    'localhost:3000'
-  return `${proto}://${host}`
-}
-
 /**
- * Sends a magic link to the supplied email. With signups disabled in the
- * Supabase project, only the pre-provisioned admin can actually complete
- * sign-in (Decision 4) — for everyone else this is a no-op that still says
- * "we sent you an email" to avoid leaking which addresses are valid.
+ * Signs in with email + password. Signups are disabled in the Supabase
+ * project (Decision 4), so only the pre-provisioned admin can authenticate.
+ * On invalid credentials we surface a generic error to avoid leaking which
+ * emails are valid.
  */
-export async function requestMagicLink(formData: FormData) {
+export async function signIn(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
-  const next = String(formData.get('next') ?? '/').trim() || '/'
+  const password = String(formData.get('password') ?? '')
+  const nextRaw = String(formData.get('next') ?? '/').trim() || '/'
+  const next = nextRaw.startsWith('/') ? nextRaw : '/'
 
-  if (!email) {
-    redirect('/auth/login?error=missing-email')
+  if (!email || !password) {
+    redirect('/auth/login?error=missing-credentials')
   }
 
   const supabase = await createClient()
-  const headerList = await headers()
-  const origin = buildOrigin(headerList)
-  const callbackUrl = new URL('/auth/callback', origin)
-  callbackUrl.searchParams.set('next', next)
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: callbackUrl.toString() },
-  })
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    console.error('signInWithOtp failed', error)
-    redirect(`/auth/login?error=${encodeURIComponent(error.message)}`)
+    console.error('signInWithPassword failed', error)
+    redirect('/auth/login?error=invalid-credentials')
   }
 
-  redirect(`/auth/login?sent=${encodeURIComponent(email)}`)
+  redirect(next)
 }
