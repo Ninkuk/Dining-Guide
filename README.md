@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dining Guide
 
-## Getting Started
+A personal CRUD web app that replaces a Google Sheet of restaurants visited and worth trying. List, detail, map, and stats views — public read, single-admin write.
 
-First, run the development server:
+Production: [dining.ninkuk.com](https://dining.ninkuk.com)
+
+## Stack
+
+- **Next.js 16** (App Router, Cache Components, TypeScript) — note: this is a breaking version, see `AGENTS.md`
+- **Supabase** (Postgres + RLS + Auth) — single admin user, email + password
+- **Tailwind CSS v4** + **shadcn/ui** (`radix-maia` style, `hugeicons`)
+- **React Leaflet** + OpenStreetMap tiles, **Nominatim** for geocoding (server-proxied at write-time only)
+- **React Hook Form** + **Zod**, **nuqs** for URL-synced filter state, **Recharts** via shadcn Charts
+- **Vitest** for unit tests
+- Hosted on **Vercel** (Hobby tier — everything stays on free tiers)
+
+## Getting started
 
 ```bash
+npm install
+vercel env pull .env.local   # or create .env.local by hand — see "Environment" below
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command            | What it does                          |
+| ------------------ | ------------------------------------- |
+| `npm run dev`      | Start the Next.js dev server          |
+| `npm run build`    | Production build                      |
+| `npm run start`    | Serve the production build            |
+| `npm run lint`     | ESLint                                |
+| `npm test`         | Vitest (single run)                   |
+| `npm run test:watch` | Vitest watch mode                   |
+| `npm run test:ui`  | Vitest UI                             |
 
-## Learn More
+One-off CSV importer (was used to seed from the legacy spreadsheet — kept for reference):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx tsx scripts/migrate-csv.ts --clean
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Four variables. The spec's [Environment Variables table](docs/dining-guide-spec.md#environment-variables) is the source of truth; in summary:
 
-## Deploy on Vercel
+| Var                                    | Where                          |
+| -------------------------------------- | ------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Local + all Vercel envs        |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Local + all Vercel envs        |
+| `SUPABASE_SERVICE_ROLE_KEY`            | Local only — script use, never in app code |
+| `NOMINATIM_USER_AGENT`                 | Local + all Vercel envs (server-only, no `NEXT_PUBLIC_`) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Pull Vercel envs locally with `vercel env pull .env.local`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Repo layout
+
+```
+app/
+  (public)/    list, detail, map, stats — public read
+  (admin)/    new, edit, server actions — auth-gated
+  api/geocode/    Nominatim proxy (rate-limited + Runtime-Cached)
+  auth/    login + logout
+components/    UI + shadcn primitives in ui/
+lib/
+  supabase/    client.ts, server.ts, anon.ts (cache-safe), proxy.ts (Next 16 rename of middleware)
+  queries/    cached data fetchers ('use cache' + cacheTag)
+  schemas/    Zod schemas shared by RHF + server actions
+  cuisines.ts, slug.ts, rating.ts, geocode.ts
+scripts/migrate-csv.ts    one-time CSV importer
+supabase/migrations/    versioned SQL (applied via Supabase MCP)
+proxy.ts    Next 16 file convention (was middleware.ts)
+docs/dining-guide-spec.md    the source of truth — read this before changing anything substantive
+TODO.md    open work
+```
+
+## How writes are protected
+
+Reads are public; writes go through four gates:
+
+1. RLS — anon `SELECT`, authenticated `ALL`
+2. Supabase Auth — one admin, signups disabled at the project level
+3. `proxy.ts` redirects unauthenticated requests to `/new` and `/[slug]/edit`
+4. Every server action throws on `VERCEL_ENV === 'preview'` so preview deploys can't corrupt prod data (single Supabase project across envs)
+
+## Further reading
+
+- **[`docs/dining-guide-spec.md`](docs/dining-guide-spec.md)** — full spec, data model, build phases, and the decision log
+- **[`TODO.md`](TODO.md)** — outstanding work
+- **[`AGENTS.md`](AGENTS.md)** — note on the Next.js 16 breaking changes
