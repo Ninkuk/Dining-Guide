@@ -1,0 +1,34 @@
+'use client'
+
+// Public client-side entry for the map. Dynamically imports the Leaflet-touching
+// inner component so it never hits SSR — Leaflet reads `window` on module load.
+
+import dynamic from 'next/dynamic'
+import { Skeleton } from '@/components/ui/skeleton'
+
+export type MapMarker = {
+  restaurant_id: number
+  slug: string
+  name: string
+  status: string
+  rating: number | null
+  latitude: number
+  longitude: number
+}
+
+const Inner = dynamic(() => import('./RestaurantMapInner'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+})
+
+export type RestaurantMapProps = {
+  markers: MapMarker[]
+  center?: [number, number]
+  zoom?: number
+  gestureHandling?: boolean
+  height?: string
+}
+
+export function RestaurantMap(props: RestaurantMapProps) {
+  return <Inner {...props} />
+}
