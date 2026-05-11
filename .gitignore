@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# private CSV data (Decision 15)
+/scripts/data/
+/scripts/migration-failures.json
+
+# supabase CLI working dirs
+/supabase/.branches/
+/supabase/.temp/
+
+# local-only working files
+/TODO.md
+/.mcp.json
+/.playwright-mcp/
