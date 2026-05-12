@@ -532,12 +532,14 @@ function RestaurantMarkers({
   want,
   selectedId,
   onSelectChange,
+  popups,
 }: {
   markers: MapMarker[]
   visited: L.DivIcon
   want: L.DivIcon
   selectedId: number | null
   onSelectChange: (id: number | null) => void
+  popups: boolean
 }) {
   const map = useMap()
   const markerRefs = useRef<Map<number, L.Marker>>(new Map())
@@ -581,9 +583,11 @@ function RestaurantMarkers({
             click: () => onSelectChange(selectedId === m.restaurant_id ? null : m.restaurant_id),
           }}
         >
-          <Popup closeOnClick={false} closeButton={false}>
-            <MarkerCard marker={m} />
-          </Popup>
+          {popups ? (
+            <Popup closeOnClick={false} closeButton={false}>
+              <MarkerCard marker={m} />
+            </Popup>
+          ) : null}
         </Marker>
       ))}
     </>
@@ -599,6 +603,7 @@ export type RestaurantMapInnerProps = {
   onBoundsChange?: (bounds: BoundsLiteral) => void
   selectedId?: number | null
   onSelectChange?: (id: number | null) => void
+  popups?: boolean
 }
 
 export default function RestaurantMapInner({
@@ -610,6 +615,7 @@ export default function RestaurantMapInner({
   onBoundsChange,
   selectedId = null,
   onSelectChange,
+  popups = true,
 }: RestaurantMapInnerProps) {
   // next-themes writes the `dark` class on <html> via a blocking pre-hydration
   // script, so reading it synchronously here is reliable — and it sidesteps
@@ -657,6 +663,7 @@ export default function RestaurantMapInner({
         want={want}
         selectedId={selected}
         onSelectChange={handleSelectChange}
+        popups={popups}
       />
     </MapContainer>
   )

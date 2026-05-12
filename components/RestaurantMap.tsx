@@ -39,6 +39,9 @@ export type RestaurantMapProps = {
   onBoundsChange?: (bounds: BoundsLiteral) => void
   selectedId?: number | null
   onSelectChange?: (id: number | null) => void
+  /** Render a card popup when a pin is tapped. Defaults to true; the restaurant
+   *  detail page passes `false` since the popup would just repeat the page. */
+  popups?: boolean
 }
 
 export function RestaurantMap(props: RestaurantMapProps) {
