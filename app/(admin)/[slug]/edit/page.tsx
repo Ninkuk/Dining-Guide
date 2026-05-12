@@ -81,7 +81,7 @@ async function FormHost({ params }: { params: Promise<Params> }) {
   return (
     <>
       <header className="flex flex-col gap-3">
-        <BackLink />
+        <BackLink href={`/${restaurant.slug}`} label={restaurant.name} />
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Editing
         </p>

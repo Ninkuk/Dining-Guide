@@ -5,12 +5,13 @@ import { cn } from '@/lib/utils'
 type BackLinkProps = {
   className?: string
   label?: string
+  href?: string
 }
 
-export function BackLink({ className, label = 'Restaurants' }: BackLinkProps) {
+export function BackLink({ className, label = 'Restaurants', href = '/' }: BackLinkProps) {
   return (
     <Link
-      href="/"
+      href={href}
       className={cn(
         'inline-flex w-fit items-center gap-1 rounded text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
         className
