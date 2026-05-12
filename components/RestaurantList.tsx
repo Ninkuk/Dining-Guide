@@ -197,20 +197,21 @@ function ViewPanel({
 }) {
   if (view === 'table') {
     return (
-      <div role="tabpanel" id="view-panel-table" aria-label="Table view">
+      <div key="table" role="tabpanel" id="view-panel-table" aria-label="Table view">
         <RestaurantTableView restaurants={restaurants} />
       </div>
     )
   }
   if (view === 'map') {
     return (
-      <div role="tabpanel" id="view-panel-map" aria-label="Map view">
+      <div key="map" role="tabpanel" id="view-panel-map" aria-label="Map view">
         <RestaurantMapView restaurants={restaurants} points={points} />
       </div>
     )
   }
   return (
     <div
+      key="cards"
       role="tabpanel"
       id="view-panel-cards"
       aria-label="Cards view"
