@@ -13,7 +13,7 @@ import { RestaurantMap } from '@/components/RestaurantMap'
 import { ShareButton } from '@/components/ShareButton'
 import { RestaurantAttributePills } from '@/components/RestaurantAttributePills'
 import { getCuisineEmoji } from '@/lib/cuisines'
-import { googleMapsUrl } from '@/lib/maps'
+import { googleMapsUrl, googleMapsSearchUrl } from '@/lib/maps'
 import { createClient } from '@/lib/supabase/server'
 import { getRestaurantBySlug } from '@/lib/queries/restaurants'
 import { cn } from '@/lib/utils'
@@ -168,41 +168,58 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
         ) : (
           <>
             <ul className="flex flex-col gap-3">
-              {r.locations.map((l, i) => (
-                <li key={l.id ?? i} className="flex items-start gap-2.5 text-sm">
-                  <MapPin
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                    strokeWidth={1.75}
-                  />
-                  <span>
-                    {l.city ?? (
-                      <span className="italic text-muted-foreground">No city</span>
+              {r.locations.map((l, i) => {
+                const href =
+                  l.latitude != null && l.longitude != null
+                    ? googleMapsUrl(l.latitude, l.longitude)
+                    : l.address
+                      ? googleMapsSearchUrl(l.address)
+                      : l.city
+                        ? googleMapsSearchUrl(l.city)
+                        : null
+                const body = (
+                  <>
+                    <MapPin
+                      className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                      strokeWidth={1.75}
+                    />
+                    <span>
+                      {l.city ?? (
+                        <span className="italic text-muted-foreground">No city</span>
+                      )}
+                      {l.locality ? (
+                        <span className="text-muted-foreground"> · {l.locality}</span>
+                      ) : null}
+                      {l.address ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {l.address}
+                        </span>
+                      ) : null}
+                    </span>
+                  </>
+                )
+                return (
+                  <li key={l.id ?? i} className="text-sm">
+                    {href ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in Google Maps"
+                        className="group -mx-2 flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+                      >
+                        {body}
+                      </a>
+                    ) : (
+                      <div className="flex items-start gap-2.5">{body}</div>
                     )}
-                    {l.locality ? (
-                      <span className="text-muted-foreground"> · {l.locality}</span>
-                    ) : null}
-                    {l.address ? (
-                      <span className="block text-xs text-muted-foreground">
-                        {l.address}
-                      </span>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
             {mapMarkers.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <div className="h-[300px] w-full overflow-hidden rounded-2xl ring-1 ring-foreground/10">
-                  <RestaurantMap markers={mapMarkers} gestureHandling height="100%" />
-                </div>
-                <a
-                  href={googleMapsUrl(mapMarkers[0].latitude, mapMarkers[0].longitude)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                >
-                  Open in Google Maps ↗
-                </a>
+              <div className="h-[300px] w-full overflow-hidden rounded-2xl ring-1 ring-foreground/10">
+                <RestaurantMap markers={mapMarkers} gestureHandling height="100%" popups={false} />
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
