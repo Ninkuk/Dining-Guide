@@ -44,14 +44,15 @@ npx tsx scripts/migrate-csv.ts --clean
 
 ## Environment
 
-Four variables. The spec's [Environment Variables table](docs/dining-guide-spec.md#environment-variables) is the source of truth; in summary:
+Three variables. The spec's [Environment Variables table](docs/dining-guide-spec.md#environment-variables) is the source of truth; in summary:
 
 | Var                                    | Where                          |
 | -------------------------------------- | ------------------------------ |
 | `NEXT_PUBLIC_SUPABASE_URL`             | Local + all Vercel envs        |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Local + all Vercel envs        |
 | `SUPABASE_SERVICE_ROLE_KEY`            | Local only — script use, never in app code |
-| `NOMINATIM_USER_AGENT`                 | Local + all Vercel envs (server-only, no `NEXT_PUBLIC_`) |
+
+(Geocoding uses [Photon](https://photon.komoot.io), which needs no API key — no env var.)
 
 Pull Vercel envs locally with `vercel env pull .env.local`.
 

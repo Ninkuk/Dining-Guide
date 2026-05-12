@@ -248,7 +248,7 @@ async function main() {
   }
 
   // ---------- Geocode locations ----------
-  console.log(`\nGeocoding (1.1s between calls)…`)
+  console.log(`\nGeocoding (~0.25s between calls)…`)
   const failures: Array<{ name: string; city: string | null; locality: string | null; reason: string }> = []
   let geoSuccess = 0
   let geoFail = 0
