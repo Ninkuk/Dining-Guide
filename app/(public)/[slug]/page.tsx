@@ -13,6 +13,7 @@ import { RestaurantMap } from '@/components/RestaurantMap'
 import { ShareButton } from '@/components/ShareButton'
 import { RestaurantAttributePills } from '@/components/RestaurantAttributePills'
 import { getCuisineEmoji } from '@/lib/cuisines'
+import { googleMapsUrl } from '@/lib/maps'
 import { createClient } from '@/lib/supabase/server'
 import { getRestaurantBySlug } from '@/lib/queries/restaurants'
 import { cn } from '@/lib/utils'
@@ -60,6 +61,7 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
     name: r.name,
     status: r.status,
     rating: r.rating,
+    city: l.city ?? null,
     latitude: l.latitude as number,
     longitude: l.longitude as number,
   }))
@@ -185,8 +187,18 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
               ))}
             </ul>
             {mapMarkers.length > 0 ? (
-              <div className="h-[300px] w-full overflow-hidden rounded-2xl ring-1 ring-foreground/10">
-                <RestaurantMap markers={mapMarkers} gestureHandling height="100%" />
+              <div className="flex flex-col gap-2">
+                <div className="h-[300px] w-full overflow-hidden rounded-2xl ring-1 ring-foreground/10">
+                  <RestaurantMap markers={mapMarkers} gestureHandling height="100%" />
+                </div>
+                <a
+                  href={googleMapsUrl(mapMarkers[0].latitude, mapMarkers[0].longitude)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Open in Google Maps ↗
+                </a>
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">

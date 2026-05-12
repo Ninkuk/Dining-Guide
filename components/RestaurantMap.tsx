@@ -5,6 +5,7 @@
 
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { BoundsLiteral } from '@/lib/map-viewport'
 
 export type MapMarker = {
   restaurant_id: number
@@ -12,6 +13,7 @@ export type MapMarker = {
   name: string
   status: string
   rating: number | null
+  city: string | null
   latitude: number
   longitude: number
 }
@@ -27,6 +29,9 @@ export type RestaurantMapProps = {
   zoom?: number
   gestureHandling?: boolean
   height?: string
+  onBoundsChange?: (bounds: BoundsLiteral) => void
+  selectedId?: number | null
+  onSelectChange?: (id: number | null) => void
 }
 
 export function RestaurantMap(props: RestaurantMapProps) {

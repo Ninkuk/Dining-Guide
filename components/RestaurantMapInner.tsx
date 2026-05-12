@@ -3,12 +3,19 @@
 // The Leaflet-touching half of the map. Loaded only via dynamic({ ssr:false })
 // from RestaurantMap.tsx — never imported on the server.
 
-import { useEffect, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, LayersControl } from 'react-leaflet'
+import Link from 'next/link'
+import { useTheme } from 'next-themes'
+import { LocateFixed } from 'lucide-react'
+import { toast } from 'sonner'
 import L from 'leaflet'
 import 'leaflet-gesture-handling'
 
 import type { MapMarker } from './RestaurantMap'
+import type { BoundsLiteral } from '@/lib/map-viewport'
+import { googleMapsUrl } from '@/lib/maps'
 
 // --- Leaflet hardening for fast remounts (dev) ----------------------------
 //
@@ -96,6 +103,71 @@ function mapIsRemoved(map: L.Map): boolean {
       if (this._diningGuideRemoved) return this
       return originalFitBounds.apply(this, args)
     }
+
+    const originalFlyTo = proto.flyTo
+    proto.flyTo = function patchedFlyTo(
+      this: PatchedMap,
+      ...args: Parameters<L.Map['flyTo']>
+    ) {
+      if (this._diningGuideRemoved) return this
+      return originalFlyTo.apply(this, args)
+    }
+
+    // The chokepoint for nearly every fast-remount teardown crash: a deferred
+    // layer/overlay update (tile `_update`, popup `_adjustPan`, …) calls into
+    // pixel math that reads `getPosition(this._mapPane)` — and `_mapPane` is
+    // already gone. Leaflet's own `|| Point(0,0)` fallback never runs because
+    // `getPosition(undefined)` throws first. Short-circuit to a zero point.
+    const pProto = proto as PatchedMap & {
+      _mapPane?: HTMLElement
+      _getMapPanePos: () => L.Point
+    }
+    const originalGetMapPanePos = pProto._getMapPanePos
+    pProto._getMapPanePos = function patchedGetMapPanePos(this: typeof pProto) {
+      if (!this._mapPane || this._diningGuideRemoved) return L.point(0, 0)
+      return originalGetMapPanePos.call(this)
+    }
+  }
+}
+
+// `<LayersControl>` (and any other L.Control) adds itself via React effects.
+// On a fast remount its deferred `addTo` can run against a map that's already
+// been `.remove()`d — `map._controlCorners` is gone → "can't access property
+// 'topright', map._controlCorners is undefined". Bail in that case.
+{
+  type PatchedControlProto = typeof L.Control.prototype & { __diningGuidePatched?: boolean }
+  const controlProto = L.Control.prototype as PatchedControlProto
+  if (!controlProto.__diningGuidePatched) {
+    controlProto.__diningGuidePatched = true
+    const originalAddTo = controlProto.addTo
+    controlProto.addTo = function patchedControlAddTo(this: L.Control, map: L.Map) {
+      const m = map as PatchedMap & { _controlCorners?: unknown }
+      if (m._diningGuideRemoved || !m._controlCorners) return this
+      return originalAddTo.call(this, map)
+    }
+  }
+}
+
+// A tile layer schedules a debounced `_update` (via requestAnimFrame) on
+// moveend. After a fast remount that callback can fire once the map's panes
+// are already gone — `getCenter()` → `_getMapPanePos()` → `getPosition(el)`
+// with `el` undefined → "can't access property '_leaflet_pos', el is
+// undefined". Bail when the layer's map is missing or already removed.
+{
+  type GridProto = {
+    __diningGuidePatched?: boolean
+    _update: (center?: unknown) => unknown
+    _map?: PatchedMap & { _mapPane?: unknown }
+  }
+  const gridProto = L.GridLayer.prototype as unknown as GridProto
+  if (!gridProto.__diningGuidePatched) {
+    gridProto.__diningGuidePatched = true
+    const originalUpdate = gridProto._update
+    gridProto._update = function patchedGridUpdate(this: GridProto, center?: unknown) {
+      const m = this._map
+      if (!m || m._diningGuideRemoved || !m._mapPane) return
+      return originalUpdate.call(this, center)
+    }
   }
 }
 // --------------------------------------------------------------------------
@@ -135,6 +207,229 @@ const WANT_ICON = (() => {
   return makeIcon('want_to_try')
 })()
 
+const LOCATE_DOT_ICON =
+  typeof window === 'undefined'
+    ? null
+    : L.divIcon({
+        html: '<div class="rg-locate-dot" style="width:16px;height:16px"></div>',
+        className: 'rg-locate-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      })
+
+function LocateControl() {
+  const map = useMap()
+  const layerRef = useRef<L.LayerGroup | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [container, setContainer] = useState<HTMLElement | null>(null)
+
+  // A real L.Control, mounted under the zoom +/- bar (a JSX `leaflet-control`
+  // div would spawn a second corner stack that overlaps the zoom buttons). We
+  // portal React into its container so the icon stays a normal lucide element.
+  useEffect(() => {
+    if (mapIsRemoved(map)) return
+    const LocateCtl = L.Control.extend({
+      options: { position: 'topleft' as L.ControlPosition },
+      onAdd(): HTMLElement {
+        const el = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
+        L.DomEvent.disableClickPropagation(el)
+        L.DomEvent.disableScrollPropagation(el)
+        return el
+      },
+    })
+    const ctl = new LocateCtl()
+    ctl.addTo(map)
+    // Imperatively-created DOM node → React state so we can portal into it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setContainer((ctl.getContainer() as HTMLElement | undefined) ?? null)
+    return () => {
+      ctl.remove()
+      setContainer(null)
+      if (layerRef.current && !mapIsRemoved(map)) layerRef.current.remove()
+      layerRef.current = null
+    }
+  }, [map])
+
+  function locate() {
+    if (mapIsRemoved(map)) return
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast.error('Location is not available in this browser.')
+      return
+    }
+    setBusy(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setBusy(false)
+        if (mapIsRemoved(map)) return
+        const here: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+        if (!layerRef.current) {
+          layerRef.current = L.layerGroup().addTo(map)
+        }
+        layerRef.current.clearLayers()
+        const dot =
+          LOCATE_DOT_ICON ??
+          L.divIcon({
+            html: '<div class="rg-locate-dot" style="width:16px;height:16px"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          })
+        L.marker(here, { icon: dot, interactive: false }).addTo(layerRef.current)
+        if (pos.coords.accuracy && pos.coords.accuracy < 5000) {
+          L.circle(here, {
+            radius: pos.coords.accuracy,
+            color: '#2563eb',
+            weight: 1,
+            fillColor: '#2563eb',
+            fillOpacity: 0.1,
+            interactive: false,
+          }).addTo(layerRef.current)
+        }
+        map.setView(here, 14)
+      },
+      (err) => {
+        setBusy(false)
+        toast.error(
+          err.code === err.PERMISSION_DENIED
+            ? 'Location permission denied.'
+            : 'Could not determine your location.'
+        )
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  if (!container) return null
+  // Leaflet's `.leaflet-bar a` styles (block, 26×26, centered line-box) lay the
+  // link out; the lucide icon just needs to sit inline-middle. Stroke is forced
+  // dark so it's visible on Leaflet's always-white control background.
+  return createPortal(
+    <a
+      href="#"
+      role="button"
+      aria-label="Show my location"
+      title="Show my location"
+      aria-busy={busy}
+      style={{ textIndent: 0 }}
+      onClick={(e) => {
+        e.preventDefault()
+        locate()
+      }}
+    >
+      <LocateFixed
+        size={16}
+        strokeWidth={2.25}
+        aria-hidden
+        className="inline-block align-middle"
+        style={{ color: '#404040' }}
+      />
+    </a>,
+    container
+  )
+}
+
+function MarkerCard({ marker }: { marker: MapMarker }) {
+  const stars =
+    marker.rating != null ? '★'.repeat(marker.rating) + '☆'.repeat(5 - marker.rating) : 'Unrated'
+  return (
+    <div className="flex w-44 flex-col gap-1.5">
+      <Link href={`/${marker.slug}`} className="flex flex-col gap-0.5">
+        <strong className="text-sm leading-tight">{marker.name}</strong>
+        <span className="text-xs text-amber-600">{stars}</span>
+        {marker.city ? <span className="text-xs text-muted-foreground">{marker.city}</span> : null}
+        <span className="text-xs text-muted-foreground">
+          {marker.status === 'visited' ? 'Visited' : marker.status === 'want_to_try' ? 'Want to try' : marker.status}
+        </span>
+      </Link>
+      <div className="flex flex-col gap-0.5 text-xs">
+        <Link href={`/${marker.slug}`} className="underline">
+          View details →
+        </Link>
+        <a
+          href={googleMapsUrl(marker.latitude, marker.longitude)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          Open in Google Maps
+        </a>
+      </div>
+    </div>
+  )
+}
+
+// --- Base tile layers ------------------------------------------------------
+// All keyless. CARTO basemaps need the OSM + CARTO attribution; Esri World
+// Imagery needs the Esri/Maxar credit and uses {z}/{y}/{x} ordering with no
+// {s} subdomain (easy to get wrong — this is the only place it matters).
+
+const CARTO_ATTR =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+const ESRI_IMAGERY_ATTR =
+  'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+const ESRI_TOPO_ATTR =
+  'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, USGS, NRCAN, METI, iPC'
+
+type BaseLayerId = 'light' | 'dark' | 'satellite' | 'terrain'
+
+function BaseLayers({ initial }: { initial: BaseLayerId }) {
+  const map = useMap()
+  const { resolvedTheme } = useTheme()
+  const lightRef = useRef<L.TileLayer | null>(null)
+  const darkRef = useRef<L.TileLayer | null>(null)
+
+  // Follow the app's light/dark mode — but only swap when the *current* basemap
+  // is one of the CARTO themed pair. If the user has picked Satellite or
+  // Terrain, leave it alone. Adding/removing the registered base layers also
+  // updates the LayersControl radio (Leaflet's control listens to layeradd /
+  // layerremove). Guard against `resolvedTheme === undefined` on first render.
+  useEffect(() => {
+    const light = lightRef.current
+    const dark = darkRef.current
+    if (!light || !dark || mapIsRemoved(map)) return
+    if (resolvedTheme !== 'light' && resolvedTheme !== 'dark') return
+    if (resolvedTheme === 'dark' && map.hasLayer(light)) {
+      map.removeLayer(light)
+      map.addLayer(dark)
+    } else if (resolvedTheme === 'light' && map.hasLayer(dark)) {
+      map.removeLayer(dark)
+      map.addLayer(light)
+    }
+  }, [map, resolvedTheme])
+
+  return (
+    <>
+      <LayersControl.BaseLayer name="Light" checked={initial === 'light'}>
+        <TileLayer
+          ref={lightRef}
+          attribution={CARTO_ATTR}
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        />
+      </LayersControl.BaseLayer>
+      <LayersControl.BaseLayer name="Dark" checked={initial === 'dark'}>
+        <TileLayer
+          ref={darkRef}
+          attribution={CARTO_ATTR}
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        />
+      </LayersControl.BaseLayer>
+      <LayersControl.BaseLayer name="Satellite" checked={initial === 'satellite'}>
+        <TileLayer
+          attribution={ESRI_IMAGERY_ATTR}
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={19}
+        />
+      </LayersControl.BaseLayer>
+      <LayersControl.BaseLayer name="Terrain" checked={initial === 'terrain'}>
+        <TileLayer
+          attribution={ESRI_TOPO_ATTR}
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={19}
+        />
+      </LayersControl.BaseLayer>
+    </>
+  )
+}
+
 function FitBounds({ markers }: { markers: MapMarker[] }) {
   const map = useMap()
   useEffect(() => {
@@ -150,6 +445,29 @@ function FitBounds({ markers }: { markers: MapMarker[] }) {
   return null
 }
 
+function reportBounds(map: L.Map, cb: (b: BoundsLiteral) => void) {
+  if (mapIsRemoved(map)) return
+  const b = map.getBounds()
+  cb({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+}
+
+function MapEvents({ onBoundsChange }: { onBoundsChange?: (b: BoundsLiteral) => void }) {
+  const map = useMapEvents({
+    moveend() {
+      if (onBoundsChange) reportBounds(map, onBoundsChange)
+    },
+    zoomend() {
+      if (onBoundsChange) reportBounds(map, onBoundsChange)
+    },
+  })
+  // Emit once on mount too (covers the initial FitBounds fit).
+  useEffect(() => {
+    if (onBoundsChange) reportBounds(map, onBoundsChange)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
+
 function GestureHandling({ enabled }: { enabled: boolean }) {
   const map = useMap() as L.Map & { gestureHandling?: { enable: () => void; disable: () => void } }
   useEffect(() => {
@@ -161,12 +479,79 @@ function GestureHandling({ enabled }: { enabled: boolean }) {
   return null
 }
 
+function RestaurantMarkers({
+  markers,
+  visited,
+  want,
+  selectedId,
+  onSelectChange,
+}: {
+  markers: MapMarker[]
+  visited: L.DivIcon
+  want: L.DivIcon
+  selectedId: number | null
+  onSelectChange: (id: number | null) => void
+}) {
+  const map = useMap()
+  const markerRefs = useRef<Map<number, L.Marker>>(new Map())
+
+  // Selecting a restaurant — from a pin tap *or* from the list row — flies to
+  // it and opens its popup; clearing the selection closes any open popup.
+  useEffect(() => {
+    if (mapIsRemoved(map)) return
+    if (selectedId == null) {
+      map.closePopup()
+      return
+    }
+    const m = markers.find((x) => x.restaurant_id === selectedId)
+    if (!m) return
+    map.flyTo([m.latitude, m.longitude], Math.max(map.getZoom(), 15))
+    markerRefs.current.get(selectedId)?.openPopup()
+  }, [map, markers, selectedId])
+
+  // Tapping empty map deselects.
+  useEffect(() => {
+    if (mapIsRemoved(map)) return
+    const onClick = () => onSelectChange(null)
+    map.on('click', onClick)
+    return () => {
+      map.off('click', onClick)
+    }
+  }, [map, onSelectChange])
+
+  return (
+    <>
+      {markers.map((m) => (
+        <Marker
+          key={`${m.restaurant_id}-${m.latitude}-${m.longitude}`}
+          position={[m.latitude, m.longitude]}
+          icon={m.status === 'visited' ? visited : want}
+          ref={(instance) => {
+            if (instance) markerRefs.current.set(m.restaurant_id, instance)
+            else markerRefs.current.delete(m.restaurant_id)
+          }}
+          eventHandlers={{
+            click: () => onSelectChange(selectedId === m.restaurant_id ? null : m.restaurant_id),
+          }}
+        >
+          <Popup closeOnClick={false} closeButton={false}>
+            <MarkerCard marker={m} />
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  )
+}
+
 export type RestaurantMapInnerProps = {
   markers: MapMarker[]
   center?: [number, number]
   zoom?: number
   gestureHandling?: boolean
   height?: string
+  onBoundsChange?: (bounds: BoundsLiteral) => void
+  selectedId?: number | null
+  onSelectChange?: (id: number | null) => void
 }
 
 export default function RestaurantMapInner({
@@ -175,7 +560,25 @@ export default function RestaurantMapInner({
   zoom = 10,
   gestureHandling = false,
   height = '100%',
+  onBoundsChange,
+  selectedId = null,
+  onSelectChange,
 }: RestaurantMapInnerProps) {
+  // next-themes writes the `dark` class on <html> via a blocking pre-hydration
+  // script, so reading it synchronously here is reliable — and it sidesteps
+  // next-themes' `resolvedTheme` being briefly `undefined` on the first render.
+  // (<LayersControl>'s checked base layer is honored only at mount anyway.)
+  const [initialLayer] = useState<BaseLayerId>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      ? 'dark'
+      : 'light'
+  )
+  // Selection is controlled by the parent (the Map view, which also drives it
+  // from the list); fall back to internal state when used standalone.
+  const [internalSelected, setInternalSelected] = useState<number | null>(null)
+  const selected = onSelectChange ? selectedId : internalSelected
+  const handleSelectChange = onSelectChange ?? setInternalSelected
+
   const visited = VISITED_ICON ?? makeIcon('visited')
   const want = WANT_ICON ?? makeIcon('want_to_try')
 
@@ -194,29 +597,20 @@ export default function RestaurantMapInner({
       {...({ gestureHandling } as any)}
       scrollWheelZoom={!gestureHandling}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <LayersControl position="topright">
+        <BaseLayers initial={initialLayer} />
+      </LayersControl>
       <GestureHandling enabled={gestureHandling} />
       <FitBounds markers={markers} />
-      {markers.map((m) => (
-        <Marker
-          key={`${m.restaurant_id}-${m.latitude}-${m.longitude}`}
-          position={[m.latitude, m.longitude]}
-          icon={m.status === 'visited' ? visited : want}
-        >
-          <Popup>
-            <div style={{ fontSize: 14 }}>
-              <strong>{m.name}</strong>
-              <br />
-              {m.rating != null ? '★'.repeat(m.rating) + '☆'.repeat(5 - m.rating) : 'Unrated'}
-              <br />
-              <a href={`/${m.slug}`}>View details →</a>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+      <MapEvents onBoundsChange={onBoundsChange} />
+      <LocateControl />
+      <RestaurantMarkers
+        markers={markers}
+        visited={visited}
+        want={want}
+        selectedId={selected}
+        onSelectChange={handleSelectChange}
+      />
     </MapContainer>
   )
 }

@@ -60,6 +60,7 @@ export type MapPoint = {
   name: string
   status: string
   rating: number | null
+  city: string | null
   latitude: number
   longitude: number
 }
@@ -73,7 +74,7 @@ export async function getForMap(): Promise<MapPoint[]> {
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from('locations')
-    .select('latitude, longitude, restaurant_id, restaurants!inner(slug, name, status, rating)')
+    .select('latitude, longitude, city, restaurant_id, restaurants!inner(slug, name, status, rating)')
     .not('latitude', 'is', null)
     .not('longitude', 'is', null)
 
@@ -84,6 +85,7 @@ export async function getForMap(): Promise<MapPoint[]> {
   type Row = {
     latitude: number | null
     longitude: number | null
+    city: string | null
     restaurant_id: number
     restaurants: { slug: string; name: string; status: string; rating: number | null } | null
   }
@@ -96,6 +98,7 @@ export async function getForMap(): Promise<MapPoint[]> {
       name: r.restaurants!.name,
       status: r.restaurants!.status,
       rating: r.restaurants!.rating,
+      city: r.city,
       latitude: r.latitude as number,
       longitude: r.longitude as number,
     }))
