@@ -88,7 +88,7 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
 
   return (
     <article className="flex flex-col gap-6">
-      <BackLink />
+      <BackLink preferHistoryBack />
 
       <header className="flex flex-col gap-4">
         {r.cuisine.length > 0 ? (

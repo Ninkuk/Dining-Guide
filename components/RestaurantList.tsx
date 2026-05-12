@@ -1,12 +1,13 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   parseAsArrayOf,
   parseAsString,
   parseAsStringLiteral,
   useQueryState,
 } from 'nuqs'
+import { markNavigatedWithinApp } from '@/lib/app-navigation'
 import { Button } from '@/components/ui/button'
 import { FilterPanel } from '@/components/FilterPanel'
 import { RestaurantCardCompact } from '@/components/RestaurantCardCompact'
@@ -52,6 +53,12 @@ export function RestaurantList({
   const [statuses, setStatuses] = useQueryState('status', arrayParser)
   const [sort, setSort] = useQueryState('sort', sortParser)
   const [view, setView] = useQueryState('view', viewParser)
+
+  // Once the list has been seen, a leaf page's "Back" can safely `router.back()`
+  // to it (preserving view + filters + scroll) instead of a hardcoded href.
+  useEffect(() => {
+    markNavigatedWithinApp()
+  }, [])
 
   const facets = useMemo(() => buildFacets(restaurants), [restaurants])
 
