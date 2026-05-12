@@ -21,7 +21,7 @@ export type SortKey = (typeof SORT_KEYS)[number]
 const VIEW_KEYS = ['cards', 'table', 'map'] as const
 
 const arrayParser = parseAsArrayOf(parseAsString).withDefault([])
-const sortParser = parseAsStringLiteral(SORT_KEYS).withDefault('name')
+const sortParser = parseAsStringLiteral(SORT_KEYS).withDefault('rating-desc')
 const viewParser = parseAsStringLiteral(VIEW_KEYS).withDefault('cards')
 
 /**
@@ -110,16 +110,12 @@ export function RestaurantList({
     })
   }, [restaurants, search, cuisines, cities, ratings, occasions, wallets, vegetarians, statuses, sort])
 
-  const hasActiveFilters =
-    !!search ||
-    cuisines.length > 0 ||
-    cities.length > 0 ||
-    ratings.length > 0 ||
-    occasions.length > 0 ||
-    wallets.length > 0 ||
-    vegetarians.length > 0 ||
-    statuses.length > 0 ||
-    sort !== 'name'
+  const activeFilterCount =
+    [cuisines, cities, ratings, occasions, wallets, vegetarians, statuses].filter(
+      (a) => a.length > 0
+    ).length + (sort !== 'rating-desc' ? 1 : 0)
+
+  const hasActiveFilters = !!search || activeFilterCount > 0
 
   const clearAll = () => {
     void setSearch(null)
@@ -156,6 +152,7 @@ export function RestaurantList({
         sort={sort}
         onSortChange={setSort}
         hasActiveFilters={hasActiveFilters}
+        activeFilterCount={activeFilterCount}
         onClearAll={clearAll}
         totalCount={restaurants.length}
         filteredCount={filtered.length}
