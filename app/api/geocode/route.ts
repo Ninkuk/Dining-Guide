@@ -1,8 +1,9 @@
-// Server-side Nominatim proxy.
+// Server-side geocode proxy (Photon, via lib/geocode.ts).
 //
-// Browser hits this route from the address-autocomplete combobox; this route
-// adds the User-Agent header (server-only env var), enforces the 1.1s queue
-// (lib/geocode.ts), and caches responses for 7 days in an in-memory map.
+// The browser hits this route from the address-autocomplete combobox. The
+// route exists to (a) keep all geocoding behind one server module and (b) cache
+// responses for 7 days in an in-memory map. Returns `GeocodeHit[]` (see
+// lib/geocode.ts): `{ latitude, longitude, display_name }`.
 //
 // Fluid Compute reuses function instances, so the cache survives between
 // invocations on the same instance — good enough for a single-admin app.

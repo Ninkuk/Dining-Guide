@@ -11,10 +11,11 @@ export type AddressPick = {
   longitude: number
 }
 
-type NominatimResult = {
+// Mirrors `GeocodeHit` from lib/geocode.ts (the shape /api/geocode returns).
+type GeocodeRow = {
   display_name: string
-  lat: string
-  lon: string
+  latitude: number
+  longitude: number
 }
 
 const DEBOUNCE_MS = 300
@@ -46,7 +47,7 @@ export function AddressAutocomplete({
   placeholder?: string
 }) {
   const [query, setQuery] = useState(value ?? '')
-  const [results, setResults] = useState<NominatimResult[]>([])
+  const [results, setResults] = useState<GeocodeRow[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -96,7 +97,7 @@ export function AddressAutocomplete({
           { signal: ac.signal },
         )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = (await res.json()) as NominatimResult[]
+        const data = (await res.json()) as GeocodeRow[]
         setResults(data)
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
@@ -153,8 +154,8 @@ export function AddressAutocomplete({
                     setOpen(false)
                     onPick({
                       display_name: r.display_name,
-                      latitude: Number(r.lat),
-                      longitude: Number(r.lon),
+                      latitude: r.latitude,
+                      longitude: r.longitude,
                     })
                   }}
                 >
