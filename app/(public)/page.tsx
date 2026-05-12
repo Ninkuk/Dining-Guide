@@ -6,6 +6,14 @@ import { EditorialHeader } from '@/components/EditorialHeader'
 import { RestaurantList } from '@/components/RestaurantList'
 import { getAllRestaurants, getForMap } from '@/lib/queries/restaurants'
 import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
+import type { Metadata } from 'next'
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, socialMetadata } from '@/lib/seo'
+
+export const metadata: Metadata = socialMetadata({
+  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
+  path: '/',
+})
 
 export default function HomePage() {
   return (

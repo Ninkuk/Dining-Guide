@@ -12,9 +12,16 @@ import {
   WalletBar,
 } from '@/components/StatsCharts'
 import { getStatsData } from '@/lib/queries/restaurants'
+import type { Metadata } from 'next'
+import { socialMetadata } from '@/lib/seo'
 
-export const metadata = {
+const STATS_DESCRIPTION =
+  'Ratings, cuisines, cities, and dining habits across the journal.'
+
+export const metadata: Metadata = {
   title: 'Stats',
+  description: STATS_DESCRIPTION,
+  ...socialMetadata({ title: 'Stats · Dining Guide', description: STATS_DESCRIPTION, path: '/stats' }),
 }
 
 const MIN_ROWS_FOR_CHARTS = 3

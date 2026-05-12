@@ -16,7 +16,9 @@ import { getCuisineEmoji } from '@/lib/cuisines'
 import { googleMapsUrl, googleMapsSearchUrl } from '@/lib/maps'
 import { createClient } from '@/lib/supabase/server'
 import { getRestaurantBySlug } from '@/lib/queries/restaurants'
+import { restaurantDescription, socialMetadata } from '@/lib/seo'
 import { cn } from '@/lib/utils'
+import type { Metadata } from 'next'
 
 type Params = { slug: string }
 
@@ -26,11 +28,23 @@ const NOTE_BLOCKS = [
   { key: 'recommendations', label: "When you go" },
 ] as const
 
-export async function generateMetadata({ params }: { params: Promise<Params> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<Params>
+}): Promise<Metadata> {
   const { slug } = await params
   const r = await getRestaurantBySlug(slug)
   if (!r) return { title: 'Not found' }
-  return { title: r.name }
+
+  const title = r.permanently_closed ? `${r.name} (closed)` : r.name
+  const description = restaurantDescription(r)
+
+  return {
+    title,
+    description,
+    ...socialMetadata({ title, description, path: `/${r.slug}`, type: 'article', image: null }),
+  }
 }
 
 export default function RestaurantPage({
