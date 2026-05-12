@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatPhotonLabel, centerOf, geocodeAutocomplete, geocodeSearch } from '../geocode'
+import { formatPhotonLabel, photonCity, centerOf, geocodeAutocomplete, geocodeSearch } from '../geocode'
 
 // Shared helper — lifted to module scope so all describe blocks can use it.
 function mockFetchSequence(...responses: Array<{ features: unknown[] }>) {
@@ -53,6 +53,26 @@ describe('formatPhotonLabel', () => {
   })
 })
 
+describe('photonCity', () => {
+  it('returns city when present', () => {
+    expect(photonCity({ city: 'Phoenix', county: 'Maricopa County', state: 'Arizona' })).toBe('Phoenix')
+  })
+
+  it('falls back to town then village', () => {
+    expect(photonCity({ town: 'Payson' })).toBe('Payson')
+    expect(photonCity({ village: 'Jerome' })).toBe('Jerome')
+  })
+
+  it('does not fall back to county', () => {
+    expect(photonCity({ county: 'Maricopa County', state: 'Arizona' })).toBeNull()
+  })
+
+  it('returns null when nothing usable', () => {
+    expect(photonCity({})).toBeNull()
+    expect(photonCity({ city: '   ' })).toBeNull()
+  })
+})
+
 describe('centerOf', () => {
   it('returns the midpoint of a "minLon,minLat,maxLon,maxLat" box', () => {
     expect(centerOf('-114.85,31.30,-109.00,37.05')).toEqual({ lon: -111.925, lat: 34.175 })
@@ -85,7 +105,12 @@ describe('geocodeSearch', () => {
       ],
     })
     const result = await geocodeSearch('Bianco')
-    expect(result).toEqual({ latitude: 33.42, longitude: -111.94, display_name: 'Bianco, Phoenix, Arizona' })
+    expect(result).toEqual({
+      latitude: 33.42,
+      longitude: -111.94,
+      display_name: 'Bianco, Phoenix, Arizona',
+      city: 'Phoenix',
+    })
   })
 
   it('returns null when the response has no features', async () => {
@@ -113,7 +138,9 @@ describe('geocodeAutocomplete', () => {
       ],
     })
     const out = await geocodeAutocomplete('bianco', 5, '-114.85,31.30,-109.00,37.05')
-    expect(out).toEqual([{ latitude: 33.42, longitude: -111.94, display_name: 'Bianco, Phoenix, Arizona' }])
+    expect(out).toEqual([
+      { latitude: 33.42, longitude: -111.94, display_name: 'Bianco, Phoenix, Arizona', city: 'Phoenix' },
+    ])
     expect((f.mock.calls[0][0] as URL).searchParams.get('bbox')).toBe('-114.85,31.30,-109.00,37.05')
   })
 
@@ -127,7 +154,9 @@ describe('geocodeAutocomplete', () => {
       },
     )
     const out = await geocodeAutocomplete('le cinq', 5, '-114.85,31.30,-109.00,37.05')
-    expect(out).toEqual([{ latitude: 48.85, longitude: 2.35, display_name: 'Le Cinq, Paris, France' }])
+    expect(out).toEqual([
+      { latitude: 48.85, longitude: 2.35, display_name: 'Le Cinq, Paris, France', city: 'Paris' },
+    ])
     expect(f).toHaveBeenCalledTimes(2)
     const second = f.mock.calls[1][0] as URL
     expect(second.searchParams.has('bbox')).toBe(false)
@@ -145,7 +174,9 @@ describe('geocodeAutocomplete', () => {
       ],
     })
     const out = await geocodeAutocomplete('bianco')
-    expect(out).toEqual([{ latitude: 33.42, longitude: -111.94, display_name: 'Bianco, Phoenix, Arizona' }])
+    expect(out).toEqual([
+      { latitude: 33.42, longitude: -111.94, display_name: 'Bianco, Phoenix, Arizona', city: 'Phoenix' },
+    ])
     expect(f).toHaveBeenCalledTimes(1)
     const url = f.mock.calls[0][0] as URL
     expect(url.searchParams.has('bbox')).toBe(false)

@@ -19,6 +19,8 @@ export type GeocodeHit = {
   latitude: number
   longitude: number
   display_name: string
+  /** Locality parsed from the result's structured components (city/town/village), or null. */
+  city: string | null
 }
 
 type PhotonProperties = Record<string, string | number | undefined>
@@ -59,6 +61,16 @@ export function formatPhotonLabel(p: PhotonProperties): string {
   return out.join(', ')
 }
 
+/**
+ * The locality from Photon's structured properties — city, falling back to
+ * town/village. Deliberately *not* `county`: `formatPhotonLabel` uses county as
+ * a last resort for the display string, but "Maricopa County" is a poor default
+ * to auto-fill into a City field. The admin can still type one by hand.
+ */
+export function photonCity(p: PhotonProperties): string | null {
+  return String(p.city ?? p.town ?? p.village ?? '').trim() || null
+}
+
 /** Midpoint of a `minLon,minLat,maxLon,maxLat` box, or null if malformed. */
 export function centerOf(viewbox: string): { lat: number; lon: number } | null {
   const n = viewbox.split(',').map(Number)
@@ -68,7 +80,12 @@ export function centerOf(viewbox: string): { lat: number; lon: number } | null {
 
 function toHit(f: PhotonFeature): GeocodeHit {
   const [lon, lat] = f.geometry.coordinates // GeoJSON order: [lon, lat]
-  return { latitude: lat, longitude: lon, display_name: formatPhotonLabel(f.properties) }
+  return {
+    latitude: lat,
+    longitude: lon,
+    display_name: formatPhotonLabel(f.properties),
+    city: photonCity(f.properties),
+  }
 }
 
 type PhotonOpts = { limit: number; bias?: { lat: number; lon: number }; bbox?: string }
