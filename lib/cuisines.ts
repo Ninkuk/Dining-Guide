@@ -8,13 +8,18 @@ const FALLBACK_EMOJI = '🍽️'
 
 // Keys are the canonical (case-sensitive) names stored in restaurants.cuisine[]
 // and in cuisines.name once the table exists.
+//
+// Convention: the emoji is always a representative dish or ingredient — never a
+// country flag. Flags can't be applied uniformly (most entries here aren't
+// nationalities) and read reductively, so we don't use them at all. Mild
+// duplicates are acceptable (Japanese / Sushi both 🍣) — uniqueness isn't a goal.
 export const CUISINE_EMOJI: Record<string, string> = {
-  American: '🇺🇸',
+  American: '🥧',
   BBQ: '🍖',
   Bakery: '🥐',
   Bar: '🍸',
   Boba: '🧋',
-  Brazilian: '🇧🇷',
+  Brazilian: '🫘',
   Breakfast: '🥞',
   Brewery: '🍺',
   British: '🫖',
@@ -25,15 +30,15 @@ export const CUISINE_EMOJI: Record<string, string> = {
   Caribbean: '🏝️',
   Chinese: '🥡',
   Coffee: '☕',
-  Cuban: '🇨🇺',
+  Cuban: '🥪',
   Desserts: '🍰',
   Diner: '🍳',
   Donuts: '🍩',
-  Ethiopian: '🇪🇹',
-  Filipino: '🇵🇭',
+  Ethiopian: '🫓',
+  Filipino: '🍢',
   French: '🥖',
   German: '🥨',
-  Greek: '🇬🇷',
+  Greek: '🫒',
   Hawaiian: '🌺',
   'Ice Cream': '🍦',
   Indian: '🍛',
@@ -55,7 +60,7 @@ export const CUISINE_EMOJI: Record<string, string> = {
   Sandwiches: '🥪',
   Seafood: '🦞',
   Soul: '🍗',
-  Spanish: '🇪🇸',
+  Spanish: '🥘',
   Steakhouse: '🥩',
   Sushi: '🍣',
   Tapas: '🍢',
@@ -67,8 +72,9 @@ export const CUISINE_EMOJI: Record<string, string> = {
 }
 
 /**
- * Curated palette for the "new cuisine" emoji picker — food, drink, place, and
- * origin-flag glyphs only, not the whole Unicode set. Grouped for scanning.
+ * Curated palette for the "new cuisine" emoji picker — food, drink, and place
+ * glyphs only, not the whole Unicode set. Grouped for scanning. No flags: the
+ * convention is a dish or ingredient (see CUISINE_EMOJI above).
  * (Superset of the values in CUISINE_EMOJI plus sensible extras.)
  */
 export const CUISINE_EMOJI_CHOICES: readonly { label: string; emojis: readonly string[] }[] = [
@@ -109,15 +115,6 @@ export const CUISINE_EMOJI_CHOICES: readonly { label: string; emojis: readonly s
       '🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🥭', '🍎', '🍐',
       '🍑', '🍒', '🍓', '🫐', '🥝', '🥥', '🌴', '🏝️', '🌺', '🌿',
       '🌱', '🔥', '⛩️', '🐃', '🦙', '☘️',
-    ],
-  },
-  {
-    label: 'Flags',
-    emojis: [
-      '🇺🇸', '🇲🇽', '🇨🇦', '🇧🇷', '🇦🇷', '🇵🇪', '🇨🇺', '🇯🇲', '🇮🇹', '🇫🇷',
-      '🇪🇸', '🇵🇹', '🇬🇷', '🇩🇪', '🇬🇧', '🇮🇪', '🇨🇳', '🇯🇵', '🇰🇷', '🇹🇭',
-      '🇻🇳', '🇵🇭', '🇮🇩', '🇲🇾', '🇸🇬', '🇮🇳', '🇧🇩', '🇵🇰', '🇱🇰', '🇹🇷',
-      '🇱🇧', '🇮🇷', '🇸🇦', '🇮🇱', '🇪🇬', '🇪🇹', '🇲🇦', '🇦🇺',
     ],
   },
 ]

@@ -19,7 +19,7 @@ export const cuisineSchema = z.object({
   emoji: z
     .string()
     .trim()
-    .max(16) // 1–4 code points usually; flag + ZWJ sequences from the picker can be longer
+    .max(16) // 1–4 code points usually; ZWJ sequences (e.g. 🧑‍🍳) can run longer
     .default('🍽️')
     .transform((v) => v || '🍽️'),
 })

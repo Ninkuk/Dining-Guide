@@ -1,8 +1,9 @@
 'use client'
 
-// A small curated emoji picker for cuisines — food / drink / place / origin-flag
-// glyphs only (see CUISINE_EMOJI_CHOICES), grouped and scrollable. Deliberately
-// not a full Unicode picker: the cuisine vocabulary stays visually consistent.
+// A small curated emoji picker for cuisines — food / drink / place glyphs only
+// (see CUISINE_EMOJI_CHOICES), grouped and scrollable. No flags: cuisine emoji
+// are always a dish or ingredient. Deliberately not a full Unicode picker so the
+// cuisine vocabulary stays visually consistent.
 
 import { cn } from '@/lib/utils'
 import { CUISINE_EMOJI_CHOICES } from '@/lib/cuisines'

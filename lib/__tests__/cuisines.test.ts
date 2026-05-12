@@ -21,6 +21,15 @@ describe('CUISINE_EMOJI', () => {
       expect(emoji.length, `${name} emoji`).toBeGreaterThan(0)
     }
   })
+
+  // Convention: a dish or ingredient, never a country flag. Flag emoji are pairs
+  // of regional-indicator symbols (U+1F1E6–U+1F1FF).
+  it('uses no country flags', () => {
+    const REGIONAL_INDICATOR = /[\u{1F1E6}-\u{1F1FF}]/u
+    for (const [name, emoji] of Object.entries(CUISINE_EMOJI)) {
+      expect(REGIONAL_INDICATOR.test(emoji), `${name} emoji`).toBe(false)
+    }
+  })
 })
 
 describe('getCuisineEmoji', () => {
@@ -94,6 +103,15 @@ describe('CUISINE_EMOJI_CHOICES', () => {
       expect(group.emojis.length, `${group.label} emojis`).toBeGreaterThan(0)
       for (const e of group.emojis) {
         expect(e.length, `${group.label} entry`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('offers no country flags (matches the dish/ingredient convention)', () => {
+    const REGIONAL_INDICATOR = /[\u{1F1E6}-\u{1F1FF}]/u
+    for (const group of CUISINE_EMOJI_CHOICES) {
+      for (const e of group.emojis) {
+        expect(REGIONAL_INDICATOR.test(e), `${group.label} entry ${e}`).toBe(false)
       }
     }
   })
