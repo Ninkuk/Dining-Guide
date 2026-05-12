@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, LayersControl } from 'react-leaflet'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { LocateFixed } from 'lucide-react'
+import { ArrowUpRight, LocateFixed, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 import L from 'leaflet'
 import 'leaflet-gesture-handling'
@@ -16,6 +16,12 @@ import 'leaflet-gesture-handling'
 import type { MapMarker } from './RestaurantMap'
 import type { BoundsLiteral } from '@/lib/map-viewport'
 import { googleMapsUrl } from '@/lib/maps'
+import { getCuisineEmoji } from '@/lib/cuisines'
+import { cn } from '@/lib/utils'
+import { StarRating } from '@/components/StarRating'
+import { StatusIndicator } from '@/components/StatusIndicator'
+import { ClosedBadge } from '@/components/ClosedBadge'
+import { Badge } from '@/components/ui/badge'
 
 // --- Leaflet hardening for fast remounts (dev) ----------------------------
 //
@@ -327,32 +333,73 @@ function LocateControl() {
   )
 }
 
+// A map popup that reads like a small RestaurantCardCompact: rating ←→ status,
+// cuisine kicker, name, an italic notes snippet, then city · wallet — plus one
+// quiet "Open in Google Maps" affordance the list card doesn't need. The
+// bubble's surface (bg / ring / radius) comes from the `.leaflet-popup-*`
+// rules in globals.css, so this just lays out the contents.
 function MarkerCard({ marker }: { marker: MapMarker }) {
-  const stars =
-    marker.rating != null ? '★'.repeat(marker.rating) + '☆'.repeat(5 - marker.rating) : 'Unrated'
+  const cuisines = marker.cuisine ?? []
   return (
-    <div className="flex w-44 flex-col gap-1.5">
-      <Link href={`/${marker.slug}`} className="flex flex-col gap-0.5">
-        <strong className="text-sm leading-tight">{marker.name}</strong>
-        <span className="text-xs text-amber-600">{stars}</span>
-        {marker.city ? <span className="text-xs text-muted-foreground">{marker.city}</span> : null}
-        <span className="text-xs text-muted-foreground">
-          {marker.status === 'visited' ? 'Visited' : marker.status === 'want_to_try' ? 'Want to try' : marker.status}
-        </span>
+    <div className="flex w-72 flex-col gap-2.5 p-4">
+      <Link href={`/${marker.slug}`} className="group flex flex-col gap-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <StarRating value={marker.rating} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {marker.permanently_closed ? <ClosedBadge /> : null}
+            <StatusIndicator status={marker.status} />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          {cuisines.length > 0 ? (
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              {cuisines.map((c) => `${getCuisineEmoji(c)} ${c}`).join(' · ')}
+            </p>
+          ) : null}
+          <h2
+            className={cn(
+              'font-heading text-2xl font-medium leading-[1.1] tracking-tight',
+              marker.permanently_closed &&
+                'text-muted-foreground line-through decoration-muted-foreground/40'
+            )}
+          >
+            {marker.name}
+          </h2>
+        </div>
+
+        {marker.notes ? (
+          <p className="line-clamp-2 text-sm italic text-muted-foreground">{marker.notes}</p>
+        ) : null}
+
+        {marker.city || marker.wallet ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {marker.city ? (
+              <span className="flex items-center gap-1">
+                <MapPin className="size-3.5" strokeWidth={1.75} />
+                {marker.city}
+              </span>
+            ) : null}
+            {marker.wallet ? (
+              <Badge variant="outline" className="rounded-full font-normal">
+                {marker.wallet}
+              </Badge>
+            ) : null}
+          </div>
+        ) : null}
       </Link>
-      <div className="flex flex-col gap-0.5 text-xs">
-        <Link href={`/${marker.slug}`} className="underline">
-          View details →
-        </Link>
-        <a
-          href={googleMapsUrl(marker.latitude, marker.longitude)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline"
-        >
-          Open in Google Maps
-        </a>
-      </div>
+
+      {/* link color comes from `.leaflet-popup-content a` in globals.css —
+          Leaflet's unlayered `a` rule can't be beaten by a Tailwind utility */}
+      <a
+        href={googleMapsUrl(marker.latitude, marker.longitude)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex w-fit items-center gap-1 text-xs transition-colors"
+      >
+        Open in Google Maps
+        <ArrowUpRight className="size-3" aria-hidden />
+      </a>
     </div>
   )
 }

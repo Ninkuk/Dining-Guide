@@ -77,10 +77,25 @@ export function RestaurantMapView({
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const mapRef = useRef<HTMLDivElement | null>(null)
 
-  const visibleIds = useMemo(() => new Set(restaurants.map((r) => r.id)), [restaurants])
+  const restaurantById = useMemo(
+    () => new Map(restaurants.map((r) => [r.id, r])),
+    [restaurants]
+  )
   const markers: MapMarker[] = useMemo(
-    () => points.filter((p) => visibleIds.has(p.restaurant_id)),
-    [points, visibleIds]
+    () =>
+      points
+        .filter((p) => restaurantById.has(p.restaurant_id))
+        .map((p) => {
+          const r = restaurantById.get(p.restaurant_id)!
+          return {
+            ...p,
+            cuisine: r.cuisine ?? [],
+            notes: r.notes,
+            wallet: r.wallet,
+            permanently_closed: r.permanently_closed,
+          }
+        }),
+    [points, restaurantById]
   )
 
   const visibleRestaurants = useMemo(

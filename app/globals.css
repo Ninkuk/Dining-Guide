@@ -4,6 +4,44 @@
 @import "leaflet/dist/leaflet.css";
 @import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 
+/* Leaflet popup — re-skinned to match the app's card vocabulary.
+   Must come after the Leaflet CSS imports so these win the cascade. */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: calc(var(--radius) * 1.8); /* same scale as the app's rounded-2xl cards */
+  /* hairline ring, matching ring-1 ring-foreground/10 — replaces Leaflet's heavy box-shadow */
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+.leaflet-popup-tip {
+  box-shadow: none; /* the container's drop-shadow covers the tip */
+}
+.leaflet-popup {
+  /* one soft, unified shadow across the bubble + its pointer tip */
+  filter: drop-shadow(0 6px 24px rgb(0 0 0 / 0.18));
+}
+.leaflet-popup-content {
+  margin: 0; /* the card controls its own padding; kills Leaflet's 13px/24px/13px/20px */
+  line-height: inherit;
+}
+.leaflet-popup-content p {
+  margin: 0; /* kill Leaflet's `.leaflet-popup-content p { margin:18px 0 }` — the card owns its spacing */
+}
+/* Kill Leaflet's browser-blue `.leaflet-container a { color:#0078A8 }`. It's
+   unlayered, so a Tailwind utility on the link can't beat it — set the popup
+   link colors here instead. (The restaurant-name link's text sits in a child
+   <span> with its own `text-foreground`, so this only affects bare links like
+   "Open in Google Maps".) */
+.leaflet-popup-content a {
+  color: var(--muted-foreground);
+}
+.leaflet-popup-content a:hover {
+  color: var(--foreground);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

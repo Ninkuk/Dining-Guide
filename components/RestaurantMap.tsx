@@ -16,6 +16,13 @@ export type MapMarker = {
   city: string | null
   latitude: number
   longitude: number
+  // Rich popup fields — mirror what RestaurantCardCompact shows. Optional: a
+  // marker without them still renders (the cuisine kicker / notes / wallet rows
+  // just don't appear).
+  cuisine?: string[]
+  notes?: string | null
+  wallet?: string | null
+  permanently_closed?: boolean
 }
 
 const Inner = dynamic(() => import('./RestaurantMapInner'), {

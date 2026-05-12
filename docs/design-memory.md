@@ -101,6 +101,14 @@ Redesigned via Design Lab on 2026-05-11 ("Variant A — Editorial column"; shipp
 - **Photo is last and clearly optional** — its own movement with the hint "optional — the page works without one"; the form must look composed with zero photo.
 - **Do not add:** a live preview pane (rejected — weak on mobile, which is the primary platform), a multi-step wizard, a dense two-column layout, a bottom attribute-pill strip (the lab mockup showed one; it was explicitly cut), keyboard shortcuts.
 
+## Map popup (`RestaurantMapInner` → `MarkerCard`)
+
+Redesigned 2026-05-11. The Leaflet marker popup **reads like a small `RestaurantCardCompact`** — same vocabulary, no Leaflet defaults.
+
+- **Bubble chrome lives in `globals.css`** (a `.leaflet-popup-*` block, placed *after* the Leaflet CSS imports so it wins — Leaflet's CSS is unlayered, so it beats `@layer utilities`; that's also why popup link colors are set there, not via Tailwind classes on the `<a>`). The bubble is `background: var(--popover)` + `color: var(--popover-foreground)` (so it flips in dark mode), `border-radius: calc(var(--radius) * 1.8)` (the app's `rounded-2xl`), a hairline ring via `box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent)`, and **one** soft `filter: drop-shadow()` on `.leaflet-popup` covering bubble + pointer tip. `.leaflet-popup-content { margin: 0 }` and `.leaflet-popup-content p { margin: 0 }` are **required** — Leaflet otherwise injects `13px/24px` content margins and `18px 0` on every `<p>`, which silently wrecks any internal spacing.
+- **`MarkerCard` contents** (`w-72`, `p-4`, `gap-2.5`): rating ←→ status row (`StarRating` · `ClosedBadge?` · `StatusIndicator`, same as the card's top row) → `gap-1` block of cuisine kicker (`text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground`, each cuisine `{emoji} {NAME}` joined by ` · `) + `font-heading text-2xl font-medium leading-[1.1] tracking-tight` name → italic 2-line notes snippet (`line-clamp-2 text-sm italic text-muted-foreground`, only if `notes`) → `📍 City · {wallet}` row (`MapPin` + city, `Badge variant="outline" rounded-full` wallet) → then, *outside* the wrapping `<Link>`, a quiet "Open in Google Maps" + `ArrowUpRight` link (the one thing the list card doesn't have). The whole upper block (rating through city row) is one `<Link href={/${slug}}>` — no separate "View details" line. The bubble surface *is* the card surface, so `MarkerCard` adds no `bg-card`/`ring`/`rounded` of its own.
+- **`MapMarker` carries the rich fields** (`cuisine?: string[]`, `notes?`, `wallet?`, `permanently_closed?`) — all optional; absent ones just don't render. They're filled in **client-side** by joining the map `points` against the full `RestaurantWithLocations[]` already loaded (in `RestaurantMapView`, and on the `/[slug]` mini-map from the loaded `r`) — `getForMap()` / `MapPoint` were **not** changed, so the one-pin-per-geocoded-location model is intact.
+
 ## Repo conventions (load-bearing)
 
 - **Framework:** Next.js 16 App Router, `cacheComponents: true` in `next.config.ts`. Read `node_modules/next/dist/docs/` before assuming any cache, routing, or middleware behavior — this is not the Next.js most code samples are written against.
@@ -113,4 +121,4 @@ Redesigned via Design Lab on 2026-05-11 ("Variant A — Editorial column"; shipp
 
 ---
 
-*Last updated 2026-05-11 (admin Add/Edit form redesign — Variant A).*
+*Last updated 2026-05-11 (map popup redesign — popup = mini RestaurantCardCompact).*

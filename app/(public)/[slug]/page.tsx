@@ -64,6 +64,10 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
     city: l.city ?? null,
     latitude: l.latitude as number,
     longitude: l.longitude as number,
+    cuisine: r.cuisine ?? [],
+    notes: r.notes,
+    wallet: r.wallet,
+    permanently_closed: r.permanently_closed,
   }))
 
   const visitedDate =
