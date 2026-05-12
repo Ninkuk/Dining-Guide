@@ -1,3 +1,4 @@
+import { ClosedBadge } from "@/components/ClosedBadge";
 import { StarRating } from "@/components/StarRating";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,10 @@ export function RestaurantCardCompact({
       >
         <div className="flex items-center justify-between gap-3">
           <StarRating value={restaurant.rating} />
-          <StatusIndicator status={restaurant.status} className="shrink-0" />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {restaurant.permanently_closed ? <ClosedBadge /> : null}
+            <StatusIndicator status={restaurant.status} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1">
@@ -53,7 +57,13 @@ export function RestaurantCardCompact({
                 .join(" · ")}
             </p>
           ) : null}
-          <h2 className="font-heading text-2xl font-medium leading-[1.1] tracking-tight">
+          <h2
+            className={cn(
+              "font-heading text-2xl font-medium leading-[1.1] tracking-tight",
+              restaurant.permanently_closed &&
+                "text-muted-foreground line-through decoration-muted-foreground/40",
+            )}
+          >
             {restaurant.name}
           </h2>
         </div>

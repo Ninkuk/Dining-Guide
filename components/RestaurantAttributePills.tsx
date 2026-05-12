@@ -23,7 +23,7 @@ function yesNo(value: string | null): string | null {
 }
 
 /**
- * The five at-a-glance attributes (occasion · wallet · vegetarian · halal ·
+ * The four at-a-glance attributes (occasion · wallet · vegetarian ·
  * visited/status). Every pill always renders; a missing value fades to a
  * grayed "Unknown" — a data-completeness cue, not a de-emphasis.
  */
@@ -36,7 +36,6 @@ export function RestaurantAttributePills({
     { emoji: '🍽️', label: 'Occasion', value: r.occasion?.trim() || null },
     { emoji: '💸', label: 'Wallet', value: r.wallet?.trim() || null },
     { emoji: '🥦', label: 'Vegetarian', value: yesNo(r.vegetarian) },
-    { emoji: '🕌', label: 'Halal', value: yesNo(r.halal) },
     r.status === 'visited'
       ? {
           emoji: '📅',

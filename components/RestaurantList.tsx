@@ -3,7 +3,6 @@
 import { useMemo } from 'react'
 import {
   parseAsArrayOf,
-  parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
   useQueryState,
@@ -50,12 +49,7 @@ export function RestaurantList({
   const [occasions, setOccasions] = useQueryState('occasion', arrayParser)
   const [wallets, setWallets] = useQueryState('wallet', arrayParser)
   const [vegetarians, setVegetarians] = useQueryState('veg', arrayParser)
-  const [halals, setHalals] = useQueryState('halal', arrayParser)
   const [statuses, setStatuses] = useQueryState('status', arrayParser)
-  const [hideChains, setHideChains] = useQueryState(
-    'hideChains',
-    parseAsBoolean.withDefault(false)
-  )
   const [sort, setSort] = useQueryState('sort', sortParser)
   const [view, setView] = useQueryState('view', viewParser)
 
@@ -87,12 +81,12 @@ export function RestaurantList({
         const key = r.vegetarian ?? 'unknown'
         if (!vegetarians.includes(key)) return false
       }
-      if (halals.length) {
-        const key = r.halal ?? 'unknown'
-        if (!halals.includes(key)) return false
+      if (statuses.length) {
+        const matchesStatus = statuses.includes(r.status)
+        const matchesClosed =
+          statuses.includes('permanently_closed') && r.permanently_closed
+        if (!matchesStatus && !matchesClosed) return false
       }
-      if (statuses.length && !statuses.includes(r.status)) return false
-      if (hideChains && r.is_chain) return false
 
       return true
     })
@@ -114,7 +108,7 @@ export function RestaurantList({
           return a.name.localeCompare(b.name)
       }
     })
-  }, [restaurants, search, cuisines, cities, ratings, occasions, wallets, vegetarians, halals, statuses, hideChains, sort])
+  }, [restaurants, search, cuisines, cities, ratings, occasions, wallets, vegetarians, statuses, sort])
 
   const hasActiveFilters =
     !!search ||
@@ -124,9 +118,7 @@ export function RestaurantList({
     occasions.length > 0 ||
     wallets.length > 0 ||
     vegetarians.length > 0 ||
-    halals.length > 0 ||
     statuses.length > 0 ||
-    hideChains ||
     sort !== 'name'
 
   const clearAll = () => {
@@ -137,9 +129,7 @@ export function RestaurantList({
     void setOccasions(null)
     void setWallets(null)
     void setVegetarians(null)
-    void setHalals(null)
     void setStatuses(null)
-    void setHideChains(null)
     void setSort(null)
   }
 
@@ -161,12 +151,8 @@ export function RestaurantList({
         onWalletsChange={setWallets}
         vegetarians={vegetarians}
         onVegetariansChange={setVegetarians}
-        halals={halals}
-        onHalalsChange={setHalals}
         statuses={statuses}
         onStatusesChange={setStatuses}
-        hideChains={hideChains}
-        onHideChainsChange={setHideChains}
         sort={sort}
         onSortChange={setSort}
         hasActiveFilters={hasActiveFilters}

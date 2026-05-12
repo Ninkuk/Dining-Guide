@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
+import { ClosedBadge } from '@/components/ClosedBadge'
 import { CompactStar } from '@/components/CompactStar'
 import { StatusIndicator } from '@/components/StatusIndicator'
 import { getCuisineEmoji } from '@/lib/cuisines'
+import { cn } from '@/lib/utils'
 import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
 
 function pickPrimaryCity(locations: RestaurantWithLocations['locations']): string | null {
@@ -20,7 +22,6 @@ export function RestaurantTableRow({
 }) {
   const primaryCity = pickPrimaryCity(restaurant.locations)
   const primaryCuisine = restaurant.cuisine[0] ?? null
-  const remainingCuisines = restaurant.cuisine.slice(1)
   const cuisineLabel = restaurant.cuisine.join(' · ')
 
   return (
@@ -38,7 +39,13 @@ export function RestaurantTableRow({
 
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="truncate font-heading text-base font-medium leading-tight">
+            <span
+              className={cn(
+                'truncate font-heading text-base font-medium leading-tight',
+                restaurant.permanently_closed &&
+                  'text-muted-foreground line-through decoration-muted-foreground/40'
+              )}
+            >
               {restaurant.name}
             </span>
             <CompactStar rating={restaurant.rating} className="text-xs" />
@@ -53,17 +60,14 @@ export function RestaurantTableRow({
                 <span aria-hidden> · </span>
               ) : null}
               {restaurant.wallet ?? null}
-              {remainingCuisines.length === 0 && restaurant.is_chain ? (
-                <>
-                  <span aria-hidden> · </span>
-                  <span>Chain</span>
-                </>
-              ) : null}
             </div>
           ) : null}
         </div>
 
         <div className="flex items-center gap-2">
+          {restaurant.permanently_closed ? (
+            <ClosedBadge className="shrink-0" />
+          ) : null}
           <StatusIndicator status={restaurant.status} className="shrink-0" />
           <ChevronRight
             className="size-4 text-muted-foreground/60"

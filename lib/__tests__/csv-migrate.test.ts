@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  detectChain,
   mapOccasion,
   mapVegetarian,
   parseCuisines,
@@ -78,24 +77,6 @@ describe('mapVegetarian', () => {
 
   it('is case-insensitive', () => {
     expect(mapVegetarian('YES')).toBe('yes')
-  })
-})
-
-describe('detectChain', () => {
-  it('detects literal "Chain" in city', () => {
-    expect(detectChain('Chain', 'Tempe')).toBe(true)
-  })
-
-  it('detects "Chain" mixed with other cities', () => {
-    expect(detectChain('Chain, Phoenix', 'Midtown')).toBe(true)
-  })
-
-  it('detects "Chain" in locality', () => {
-    expect(detectChain('', 'Chain, somewhere')).toBe(true)
-  })
-
-  it('returns false for plain city values', () => {
-    expect(detectChain('Tempe', 'Mill Ave')).toBe(false)
   })
 })
 

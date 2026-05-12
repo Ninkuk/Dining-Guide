@@ -6,6 +6,7 @@ import { MapPin, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackLink } from '@/components/BackLink'
+import { ClosedBadge } from '@/components/ClosedBadge'
 import { StarRating } from '@/components/StarRating'
 import { StatusIndicator } from '@/components/StatusIndicator'
 import { RestaurantMap } from '@/components/RestaurantMap'
@@ -14,6 +15,7 @@ import { RestaurantAttributePills } from '@/components/RestaurantAttributePills'
 import { getCuisineEmoji } from '@/lib/cuisines'
 import { createClient } from '@/lib/supabase/server'
 import { getRestaurantBySlug } from '@/lib/queries/restaurants'
+import { cn } from '@/lib/utils'
 
 type Params = { slug: string }
 
@@ -88,20 +90,22 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
             {r.cuisine.map((c) => `${getCuisineEmoji(c)} ${c}`).join(' · ')}
           </p>
         ) : null}
-        <h1 className="font-heading text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+        <h1
+          className={cn(
+            'font-heading text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl',
+            r.permanently_closed &&
+              'text-muted-foreground line-through decoration-muted-foreground/40'
+          )}
+        >
           {r.name}
         </h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <StarRating value={r.rating} size={18} />
           <StatusIndicator status={r.status} />
+          {r.permanently_closed ? <ClosedBadge /> : null}
           {visitedDate ? (
             <span className="font-mono text-xs uppercase tracking-wide tabular-nums text-muted-foreground">
               {visitedDate}
-            </span>
-          ) : null}
-          {r.is_chain ? (
-            <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground/70">
-              · chain
             </span>
           ) : null}
         </div>
@@ -223,7 +227,7 @@ function DetailSkeleton() {
         <Skeleton className="h-12 w-3/4" />
         <Skeleton className="h-5 w-1/3" />
         <div className="flex flex-wrap gap-2">
-          {Array.from({ length: 5 }, (_, i) => (
+          {Array.from({ length: 4 }, (_, i) => (
             <Skeleton key={i} className="h-7 w-24 rounded-full" />
           ))}
         </div>

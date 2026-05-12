@@ -41,10 +41,10 @@ const CHART_COLORS = [
 
 export function StatTiles({ data }: { data: StatsData }) {
   const tiles = [
+    { label: 'Total', value: data.totalRestaurants },
     { label: 'Visited', value: data.statusTotals.visited },
     { label: 'Want to try', value: data.statusTotals.want_to_try },
-    { label: 'Chains', value: data.chainTotals.chains },
-    { label: 'Independents', value: data.chainTotals.independents },
+    { label: 'Permanently closed', value: data.closedTotal },
   ]
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -286,38 +286,33 @@ export function WalletBar({
   )
 }
 
-// ---------- Dietary stacked bar ----------
+// ---------- Vegetarian-friendly bar ----------
 
-export function DietaryStacked({
+export function VegetarianBar({
   counts,
 }: {
   counts: StatsData['dietaryCounts']
 }) {
   const data = [
-    { marker: 'Vegetarian', yes: counts.vegetarian.yes, no: counts.vegetarian.no, unknown: counts.vegetarian.unknown },
-    { marker: 'Halal', yes: counts.halal.yes, no: counts.halal.no, unknown: counts.halal.unknown },
+    { key: 'Yes', count: counts.vegetarian.yes },
+    { key: 'No', count: counts.vegetarian.no },
+    { key: 'Unknown', count: counts.vegetarian.unknown },
   ]
-  const config: ChartConfig = {
-    yes: { label: 'Yes', color: CHART_COLORS[0] },
-    no: { label: 'No', color: CHART_COLORS[2] },
-    unknown: { label: 'Unknown', color: CHART_COLORS[4] },
-  }
+  const config: ChartConfig = { count: { label: 'Restaurants', color: CHART_COLORS[0] } }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Dietary markers</CardTitle>
-        <CardDescription>Yes / no / unknown per marker.</CardDescription>
+        <CardTitle>Vegetarian-friendly</CardTitle>
+        <CardDescription>Yes / no / unknown.</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={config} className="aspect-[16/10] w-full">
           <BarChart data={data}>
             <CartesianGrid vertical={false} />
-            <XAxis dataKey="marker" />
+            <XAxis dataKey="key" />
             <YAxis allowDecimals={false} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="yes" stackId="a" fill="var(--color-yes)" />
-            <Bar dataKey="no" stackId="a" fill="var(--color-no)" />
-            <Bar dataKey="unknown" stackId="a" fill="var(--color-unknown)" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="count" fill="var(--color-count)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ChartContainer>
       </CardContent>

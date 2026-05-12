@@ -294,7 +294,6 @@ export function RestaurantForm({
               />
             </div>
             <DietaryRadio name="vegetarian" label="Vegetarian-friendly" />
-            <DietaryRadio name="halal" label="Halal" />
             <div className="flex flex-col gap-2">
               <Label>Visited on</Label>
               <Controller
@@ -309,14 +308,14 @@ export function RestaurantForm({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Chain</Label>
+              <Label>Permanently closed</Label>
               <Controller
                 control={control}
-                name="is_chain"
+                name="permanently_closed"
                 render={({ field }) => (
                   <div className="flex items-center gap-2 pt-1.5">
                     <Switch checked={!!field.value} onCheckedChange={field.onChange} />
-                    <span className="text-sm text-muted-foreground">Multi-location chain</span>
+                    <span className="text-sm text-muted-foreground">No longer open</span>
                   </div>
                 )}
               />
@@ -438,7 +437,7 @@ function DietaryRadio({
   name,
   label,
 }: {
-  name: 'vegetarian' | 'halal'
+  name: 'vegetarian'
   label: string
 }) {
   const form = useFormContext<RestaurantInput>()

@@ -24,7 +24,6 @@ import {
   parseCuisines,
   mapOccasion,
   mapVegetarian,
-  detectChain,
   splitCities,
 } from '../lib/csv-migrate'
 import type { Database } from '../lib/supabase/database.types'
@@ -61,8 +60,7 @@ type RestaurantPayload = {
   wallet: string | null
   rating: number | null
   vegetarian: string | null
-  halal: string | null
-  is_chain: boolean
+  permanently_closed: boolean
   status: 'visited' | 'want_to_try'
   visited_at: string | null
   photo_url: string | null
@@ -202,7 +200,6 @@ async function main() {
     const occasion = mapOccasion(row.Occasion)
     const vegetarian = mapVegetarian(row['Vegetarian Friendly?'])
     const rating = starsToInt(row.Rating || '')
-    const is_chain = detectChain(row.City || '', row.Locality || '')
     const { cities, locality } = buildLocations(row.City || '', row.Locality || '')
 
     const locations: LocationPayload[] = []
@@ -225,7 +222,7 @@ async function main() {
         longitude: null,
       })
     }
-    // Otherwise: zero locations (valid for an unvisited chain).
+    // Otherwise: zero locations (valid for a place with no recorded address).
 
     payloads.push({
       row,
@@ -237,8 +234,7 @@ async function main() {
         wallet: null,
         rating,
         vegetarian,
-        halal: null,
-        is_chain,
+        permanently_closed: false,
         status: 'visited',
         visited_at: null,
         photo_url: null,
@@ -319,13 +315,11 @@ async function main() {
   }
 
   // ---------- Summary ----------
-  const chainCount = payloads.filter((p) => p.payload.is_chain).length
   const totalLocations = payloads.reduce((s, p) => s + p.payload.locations.length, 0)
 
   console.log('\n=== Migration summary ===')
   console.log(`Restaurants inserted: ${inserted}`)
   console.log(`Restaurants failed:   ${rpcFail}`)
-  console.log(`Chains flagged:       ${chainCount}`)
   console.log(`Locations total:      ${totalLocations}`)
   console.log(`Geocode success:      ${geoSuccess}`)
   console.log(`Geocode fail:         ${geoFail}`)

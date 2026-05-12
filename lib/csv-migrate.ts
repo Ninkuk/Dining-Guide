@@ -51,11 +51,6 @@ export function mapVegetarian(raw: string): string | null {
   return null
 }
 
-export function detectChain(city: string, locality: string): boolean {
-  const tokens = [...city.split(','), ...locality.split(',')].map((t) => t.trim())
-  return tokens.some((t) => t.toLowerCase() === 'chain')
-}
-
 export function splitCities(city: string): string[] {
   return city
     .split(',')

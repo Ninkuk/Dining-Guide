@@ -78,12 +78,11 @@ export type Database = {
           cons: string | null
           created_at: string
           cuisine: string[]
-          halal: string | null
           id: number
-          is_chain: boolean
           name: string
           notes: string | null
           occasion: string | null
+          permanently_closed: boolean
           photo_url: string | null
           pros: string | null
           rating: number | null
@@ -99,12 +98,11 @@ export type Database = {
           cons?: string | null
           created_at?: string
           cuisine?: string[]
-          halal?: string | null
           id?: never
-          is_chain?: boolean
           name: string
           notes?: string | null
           occasion?: string | null
+          permanently_closed?: boolean
           photo_url?: string | null
           pros?: string | null
           rating?: number | null
@@ -120,12 +118,11 @@ export type Database = {
           cons?: string | null
           created_at?: string
           cuisine?: string[]
-          halal?: string | null
           id?: never
-          is_chain?: boolean
           name?: string
           notes?: string | null
           occasion?: string | null
+          permanently_closed?: boolean
           photo_url?: string | null
           pros?: string | null
           rating?: number | null

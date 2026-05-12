@@ -79,8 +79,7 @@ export const restaurantSchema = z.object({
     .optional()
     .transform((v) => (v == null ? null : v)),
   vegetarian: triState,
-  halal: triState,
-  is_chain: z.boolean().default(false),
+  permanently_closed: z.boolean().default(false),
   status: z.enum(STATUSES).default('visited'),
   visited_at: z
     .union([z.string(), z.date(), z.null()])

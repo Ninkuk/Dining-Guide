@@ -110,9 +110,8 @@ export type StatsData = {
   walletCounts: Record<'Cheap' | 'Normal' | 'Splurge' | 'Big night' | 'unset', number>
   dietaryCounts: {
     vegetarian: { yes: number; no: number; unknown: number }
-    halal: { yes: number; no: number; unknown: number }
   }
-  chainTotals: { chains: number; independents: number }
+  closedTotal: number
   totalRestaurants: number
 }
 
@@ -151,9 +150,8 @@ export async function getStatsData(): Promise<StatsData> {
   }
   const dietaryCounts: StatsData['dietaryCounts'] = {
     vegetarian: { yes: 0, no: 0, unknown: 0 },
-    halal: { yes: 0, no: 0, unknown: 0 },
   }
-  const chainTotals = { chains: 0, independents: 0 }
+  let closedTotal = 0
 
   for (const r of all) {
     for (const c of r.cuisine ?? []) {
@@ -182,12 +180,7 @@ export async function getStatsData(): Promise<StatsData> {
     else if (r.vegetarian === 'no') dietaryCounts.vegetarian.no += 1
     else dietaryCounts.vegetarian.unknown += 1
 
-    if (r.halal === 'yes') dietaryCounts.halal.yes += 1
-    else if (r.halal === 'no') dietaryCounts.halal.no += 1
-    else dietaryCounts.halal.unknown += 1
-
-    if (r.is_chain) chainTotals.chains += 1
-    else chainTotals.independents += 1
+    if (r.permanently_closed) closedTotal += 1
 
     for (const loc of r.locations ?? []) {
       const city = loc.city?.trim()
@@ -203,7 +196,7 @@ export async function getStatsData(): Promise<StatsData> {
     occasionCounts,
     walletCounts,
     dietaryCounts,
-    chainTotals,
+    closedTotal,
     totalRestaurants: all.length,
   }
 }

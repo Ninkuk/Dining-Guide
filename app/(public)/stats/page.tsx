@@ -4,11 +4,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   CityBar,
   CuisineBar,
-  DietaryStacked,
   OccasionBar,
   RatingBar,
   StatTiles,
   StatusDonut,
+  VegetarianBar,
   WalletBar,
 } from '@/components/StatsCharts'
 import { getStatsData } from '@/lib/queries/restaurants'
@@ -55,9 +55,7 @@ async function StatsBody() {
         <StatusDonut totals={data.statusTotals} />
         <OccasionBar counts={data.occasionCounts} />
         <WalletBar counts={data.walletCounts} />
-        <div className="md:col-span-2">
-          <DietaryStacked counts={data.dietaryCounts} />
-        </div>
+        <VegetarianBar counts={data.dietaryCounts} />
       </div>
     </div>
   )

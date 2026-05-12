@@ -36,12 +36,6 @@ const VEGETARIAN_OPTIONS = [
   { value: 'unknown', label: 'Unknown' },
 ] as const
 
-const HALAL_OPTIONS = [
-  { value: 'yes', label: 'Yes' },
-  { value: 'no', label: 'No' },
-  { value: 'unknown', label: 'Unknown' },
-] as const
-
 const WALLET_OPTIONS = [
   { value: 'Cheap', label: 'Cheap' },
   { value: 'Normal', label: 'Normal' },
@@ -52,6 +46,7 @@ const WALLET_OPTIONS = [
 const STATUS_OPTIONS = [
   { value: 'visited', label: 'Visited' },
   { value: 'want_to_try', label: 'Want to try' },
+  { value: 'permanently_closed', label: 'Permanently closed' },
 ] as const
 
 const SORT_OPTIONS: ReadonlyArray<{ value: SortKey; label: string }> = [
@@ -77,12 +72,8 @@ type FilterPanelProps = {
   onWalletsChange: (value: string[]) => void
   vegetarians: string[]
   onVegetariansChange: (value: string[]) => void
-  halals: string[]
-  onHalalsChange: (value: string[]) => void
   statuses: string[]
   onStatusesChange: (value: string[]) => void
-  hideChains: boolean
-  onHideChainsChange: (value: boolean) => void
   sort: SortKey
   onSortChange: (value: SortKey) => void
   hasActiveFilters: boolean
@@ -108,12 +99,8 @@ export function FilterPanel(props: FilterPanelProps) {
     onWalletsChange,
     vegetarians,
     onVegetariansChange,
-    halals,
-    onHalalsChange,
     statuses,
     onStatusesChange,
-    hideChains,
-    onHideChainsChange,
     sort,
     onSortChange,
     hasActiveFilters,
@@ -184,13 +171,6 @@ export function FilterPanel(props: FilterPanelProps) {
         />
 
         <MultiFilter
-          label="Halal"
-          selected={halals}
-          onChange={onHalalsChange}
-          options={[...HALAL_OPTIONS]}
-        />
-
-        <MultiFilter
           label="Status"
           selected={statuses}
           onChange={onStatusesChange}
@@ -212,16 +192,6 @@ export function FilterPanel(props: FilterPanelProps) {
             options={facets.occasions.map((o) => ({ value: o, label: o }))}
           />
         ) : null}
-
-        <Button
-          variant="outline"
-          size="sm"
-          aria-pressed={hideChains}
-          onClick={() => onHideChainsChange(!hideChains)}
-          className={cn(hideChains && 'border-foreground/30 bg-input/60')}
-        >
-          {hideChains ? 'Show chains' : 'Hide chains'}
-        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
