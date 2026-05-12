@@ -1,19 +1,23 @@
-'use client'
+"use client";
 
-import { useFieldArray, useFormContext, Controller } from 'react-hook-form'
-import { Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { AddressAutocomplete } from './AddressAutocomplete'
-import { CityCombobox } from './CityCombobox'
-import type { RestaurantInput } from '@/lib/schemas/restaurant'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { RestaurantInput } from "@/lib/schemas/restaurant";
+import { Plus, Trash2 } from "lucide-react";
+import { Controller, useFieldArray, useFormContext } from "react-hook-form";
+import { AddressAutocomplete } from "./AddressAutocomplete";
+import { CityCombobox } from "./CityCombobox";
 
 export function LocationsFieldArray() {
-  const { control, register, setValue, watch } = useFormContext<RestaurantInput>()
-  const { fields, append, remove } = useFieldArray({ control, name: 'locations' })
+  const { control, register, setValue, watch } =
+    useFormContext<RestaurantInput>();
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "locations",
+  });
   // Live values — the address autocomplete biases toward each row's City.
-  const watchedLocations = watch('locations') ?? []
+  const watchedLocations = watch("locations") ?? [];
 
   return (
     <div className="flex flex-col gap-3">
@@ -24,7 +28,10 @@ export function LocationsFieldArray() {
       ) : (
         <ul className="flex flex-col gap-2.5">
           {fields.map((field, i) => (
-            <li key={field.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <li
+              key={field.id}
+              className="rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+            >
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
                   Location {i + 1}
@@ -39,7 +46,44 @@ export function LocationsFieldArray() {
                   <Trash2 className="size-4" />
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Find address</Label>
+                <Controller
+                  control={control}
+                  name={`locations.${i}.address`}
+                  render={({ field: addr }) => (
+                    <AddressAutocomplete
+                      value={addr.value ?? null}
+                      city={watchedLocations[i]?.city ?? null}
+                      onPick={(pick) => {
+                        if (!pick) {
+                          setValue(`locations.${i}.address`, null);
+                          setValue(`locations.${i}.latitude`, null);
+                          setValue(`locations.${i}.longitude`, null);
+                          return;
+                        }
+                        setValue(`locations.${i}.address`, pick.display_name, {
+                          shouldDirty: true,
+                        });
+                        setValue(`locations.${i}.latitude`, pick.latitude, {
+                          shouldDirty: true,
+                        });
+                        setValue(`locations.${i}.longitude`, pick.longitude, {
+                          shouldDirty: true,
+                        });
+                        // The picked address is the authoritative source for the
+                        // city; overwrite even if one was typed (still editable).
+                        if (pick.city) {
+                          setValue(`locations.${i}.city`, pick.city, {
+                            shouldDirty: true,
+                          });
+                        }
+                      }}
+                    />
+                  )}
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor={`loc-city-${i}`} className="text-xs">
                     City
@@ -68,30 +112,6 @@ export function LocationsFieldArray() {
                   />
                 </div>
               </div>
-              <div className="mt-3 flex flex-col gap-1">
-                <Label className="text-xs">Address (autocomplete)</Label>
-                <Controller
-                  control={control}
-                  name={`locations.${i}.address`}
-                  render={({ field: addr }) => (
-                    <AddressAutocomplete
-                      value={addr.value ?? null}
-                      city={watchedLocations[i]?.city ?? null}
-                      onPick={(pick) => {
-                        if (!pick) {
-                          setValue(`locations.${i}.address`, null)
-                          setValue(`locations.${i}.latitude`, null)
-                          setValue(`locations.${i}.longitude`, null)
-                          return
-                        }
-                        setValue(`locations.${i}.address`, pick.display_name, { shouldDirty: true })
-                        setValue(`locations.${i}.latitude`, pick.latitude, { shouldDirty: true })
-                        setValue(`locations.${i}.longitude`, pick.longitude, { shouldDirty: true })
-                      }}
-                    />
-                  )}
-                />
-              </div>
             </li>
           ))}
         </ul>
@@ -116,5 +136,5 @@ export function LocationsFieldArray() {
         Add location
       </Button>
     </div>
-  )
+  );
 }

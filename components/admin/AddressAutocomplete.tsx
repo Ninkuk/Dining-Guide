@@ -9,6 +9,8 @@ export type AddressPick = {
   display_name: string
   latitude: number
   longitude: number
+  /** Locality parsed from the result, for auto-filling the City field. May be null. */
+  city: string | null
 }
 
 // Mirrors `GeocodeHit` from lib/geocode.ts (the shape /api/geocode returns).
@@ -16,6 +18,7 @@ type GeocodeRow = {
   display_name: string
   latitude: number
   longitude: number
+  city: string | null
 }
 
 const DEBOUNCE_MS = 300
@@ -156,6 +159,7 @@ export function AddressAutocomplete({
                       display_name: r.display_name,
                       latitude: r.latitude,
                       longitude: r.longitude,
+                      city: r.city ?? null,
                     })
                   }}
                 >
