@@ -23,6 +23,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   'invalid-credentials': 'Invalid email or password.',
 }
 
+export const metadata = {
+  title: 'Sign in',
+  robots: { index: false, follow: false },
+}
+
 export default function LoginPage({
   searchParams,
 }: {

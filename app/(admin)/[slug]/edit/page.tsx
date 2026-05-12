@@ -11,7 +11,7 @@ type Params = { slug: string }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }) {
   const { slug } = await params
-  return { title: `Edit ${slug}` }
+  return { title: `Edit ${slug}`, robots: { index: false, follow: false } }
 }
 
 export default function EditRestaurantPage({

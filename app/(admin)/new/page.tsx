@@ -5,7 +5,10 @@ import { RestaurantForm } from '@/components/admin/RestaurantForm'
 import { getCuisines } from '@/lib/queries/cuisines'
 import type { RestaurantInput } from '@/lib/schemas/restaurant'
 
-export const metadata = { title: 'New restaurant' }
+export const metadata = {
+  title: 'New restaurant',
+  robots: { index: false, follow: false },
+}
 
 const DEFAULTS: RestaurantInput = {
   name: '',
