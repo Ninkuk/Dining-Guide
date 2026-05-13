@@ -33,7 +33,7 @@ export default function NewRestaurantPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-6 sm:py-8">
       <header className="flex flex-col gap-3">
-        <BackLink />
+        <BackLink preferHistoryBack />
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
           New entry
         </p>

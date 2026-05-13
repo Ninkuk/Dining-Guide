@@ -4,17 +4,18 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { hasNavigatedWithinApp } from '@/lib/app-navigation'
+import { getPreviousPath } from '@/lib/app-navigation'
 
 type BackLinkProps = {
   className?: string
   label?: string
   href?: string
   /**
-   * When true, clicking does `router.back()` if the user reached this page from
-   * within the app — restoring the previous view's scroll position and URL
-   * state. Falls back to navigating to `href` on cold loads (or modified
-   * clicks, so cmd-click still opens a new tab).
+   * When true, an in-app click does `router.back()` instead of navigating to
+   * `href` — but only when the previous page in this session *is* `href` (so
+   * back() lands on the same place, with its scroll position / `?view=` /
+   * filters restored). Otherwise, on a cold load, or on a modifier-click
+   * (cmd-click → new tab — `onNavigate` doesn't fire), it's a plain link.
    */
   preferHistoryBack?: boolean
 }
@@ -34,15 +35,8 @@ export function BackLink({
         'inline-flex w-fit items-center gap-1 rounded text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
         className
       )}
-      onClick={(e) => {
-        if (
-          preferHistoryBack &&
-          !e.metaKey &&
-          !e.ctrlKey &&
-          !e.shiftKey &&
-          !e.altKey &&
-          hasNavigatedWithinApp()
-        ) {
+      onNavigate={(e) => {
+        if (preferHistoryBack && getPreviousPath() === href) {
           e.preventDefault()
           router.back()
         }

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { AccountMenuSlot } from "@/components/AccountMenuSlot";
+import { NavigationTracker } from "@/components/NavigationTracker";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <NuqsAdapter>
+            <NavigationTracker />
             <main className="relative flex flex-1 flex-col">
               <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end px-4 pt-4">
                 <div className="pointer-events-auto">
