@@ -7,17 +7,13 @@ import type { RestaurantInput } from "@/lib/schemas/restaurant";
 import { Plus, Trash2 } from "lucide-react";
 import { Controller, useFieldArray, useFormContext } from "react-hook-form";
 import { AddressAutocomplete } from "./AddressAutocomplete";
-import { CityCombobox } from "./CityCombobox";
 
 export function LocationsFieldArray() {
-  const { control, register, setValue, watch } =
-    useFormContext<RestaurantInput>();
+  const { control, register, setValue } = useFormContext<RestaurantInput>();
   const { fields, append, remove } = useFieldArray({
     control,
     name: "locations",
   });
-  // Live values — the address autocomplete biases toward each row's City.
-  const watchedLocations = watch("locations") ?? [];
 
   return (
     <div className="flex flex-col gap-3">
@@ -54,7 +50,6 @@ export function LocationsFieldArray() {
                   render={({ field: addr }) => (
                     <AddressAutocomplete
                       value={addr.value ?? null}
-                      city={watchedLocations[i]?.city ?? null}
                       onPick={(pick) => {
                         if (!pick) {
                           setValue(`locations.${i}.address`, null);
@@ -92,14 +87,23 @@ export function LocationsFieldArray() {
                     control={control}
                     name={`locations.${i}.city`}
                     render={({ field }) => (
-                      <CityCombobox
+                      <Input
                         id={`loc-city-${i}`}
-                        value={field.value ?? null}
-                        onChange={(v) => field.onChange(v)}
-                        placeholder="Tempe"
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value.trim().length === 0
+                              ? null
+                              : e.target.value,
+                          )
+                        }
+                        placeholder="e.g. Tempe"
                       />
                     )}
                   />
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Filled in from the address — edit if needed.
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label htmlFor={`loc-locality-${i}`} className="text-xs">

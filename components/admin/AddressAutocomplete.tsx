@@ -27,8 +27,7 @@ const DEBOUNCE_MS = 300
 // inside the box first and only falls back to an unrestricted search if that
 // finds nothing — so AZ places win, but a trip restaurant still resolves.
 // Replaced with a tighter box around the user's actual location once
-// geolocation resolves. (When this row already has a City, that's appended to
-// the query, which is the strongest signal of all.)
+// geolocation resolves.
 const ARIZONA_VIEWBOX = '-114.85,31.30,-109.00,37.05'
 
 function boxAround(lat: number, lon: number): string {
@@ -39,13 +38,10 @@ function boxAround(lat: number, lon: number): string {
 
 export function AddressAutocomplete({
   value,
-  city,
   onPick,
   placeholder = 'Search address…',
 }: {
   value: string | null
-  /** The City entered for this location row, if any — appended to the query to bias results. */
-  city?: string | null
   onPick: (pick: AddressPick | null) => void
   placeholder?: string
 }) {
@@ -92,11 +88,9 @@ export function AddressAutocomplete({
       abortRef.current = ac
       setLoading(true)
       setError(null)
-      const cityHint = city?.trim()
-      const term = cityHint ? `${query.trim()}, ${cityHint}` : query.trim()
       try {
         const res = await fetch(
-          `/api/geocode?q=${encodeURIComponent(term)}&viewbox=${encodeURIComponent(viewbox)}`,
+          `/api/geocode?q=${encodeURIComponent(query.trim())}&viewbox=${encodeURIComponent(viewbox)}`,
           { signal: ac.signal },
         )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -114,7 +108,7 @@ export function AddressAutocomplete({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [query, viewbox, city])
+  }, [query, viewbox])
 
   return (
     <div className="relative">
