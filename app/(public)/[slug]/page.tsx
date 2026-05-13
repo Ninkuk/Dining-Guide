@@ -11,6 +11,7 @@ import { StarRating } from '@/components/StarRating'
 import { StatusIndicator } from '@/components/StatusIndicator'
 import { RestaurantMap } from '@/components/RestaurantMap'
 import { ShareButton } from '@/components/ShareButton'
+import { DeleteRestaurantButton } from '@/components/admin/DeleteRestaurantButton'
 import { RestaurantAttributePills } from '@/components/RestaurantAttributePills'
 import { getCuisineEmoji } from '@/lib/cuisines'
 import { googleMapsUrl, googleMapsSearchUrl } from '@/lib/maps'
@@ -132,7 +133,12 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
         <RestaurantAttributePills restaurant={r} />
         <div className="flex items-center gap-3 pt-1">
           <ShareButton name={r.name} slug={r.slug} />
-          <EditButton slug={r.slug} />
+          <AdminActions
+            slug={r.slug}
+            id={r.id}
+            name={r.name}
+            locationCount={r.locations.length}
+          />
         </div>
       </header>
 
@@ -248,20 +254,34 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
 }
 
 /**
- * Auth-aware "Edit" button. Lives OUTSIDE the `'use cache'` boundary because it
- * reads cookies; the rest of the page is cacheable.
+ * Auth-aware admin controls (Edit + Delete). Lives OUTSIDE the `'use cache'`
+ * boundary because it reads cookies; the rest of the page is cacheable. Renders
+ * nothing for the public — both the markup and the affordance stay hidden.
  */
-async function EditButton({ slug }: { slug: string }) {
+async function AdminActions({
+  slug,
+  id,
+  name,
+  locationCount,
+}: {
+  slug: string
+  id: number
+  name: string
+  locationCount: number
+}) {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
   if (!data?.claims) return null
   return (
-    <Button asChild size="sm" variant="outline">
-      <Link href={`/${slug}/edit`}>
-        <Pencil className="size-4" />
-        Edit
-      </Link>
-    </Button>
+    <>
+      <Button asChild size="sm" variant="outline">
+        <Link href={`/${slug}/edit`}>
+          <Pencil className="size-4" />
+          Edit
+        </Link>
+      </Button>
+      <DeleteRestaurantButton id={id} name={name} locationCount={locationCount} />
+    </>
   )
 }
 
