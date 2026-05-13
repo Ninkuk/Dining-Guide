@@ -492,24 +492,50 @@ function FitBounds({ markers }: { markers: MapMarker[] }) {
   return null
 }
 
-function reportBounds(map: L.Map, cb: (b: BoundsLiteral) => void) {
-  if (mapIsRemoved(map)) return
-  const b = map.getBounds()
-  cb({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+// Two viewports closer than this (in degrees) are "the same" to a human. We
+// treat them as equal so a *programmatic* move — flyTo on select, a popup's
+// auto-pan, a sub-pixel re-fit — doesn't push a near-identical bounds object to
+// the parent, re-render the tree, nudge the map again, and so on. Without this
+// guard that feedback loop trips React's "Maximum update depth exceeded".
+const BOUNDS_EPSILON = 1e-7
+
+function boundsEqual(a: BoundsLiteral, b: BoundsLiteral): boolean {
+  return (
+    Math.abs(a.north - b.north) < BOUNDS_EPSILON &&
+    Math.abs(a.south - b.south) < BOUNDS_EPSILON &&
+    Math.abs(a.east - b.east) < BOUNDS_EPSILON &&
+    Math.abs(a.west - b.west) < BOUNDS_EPSILON
+  )
 }
 
 function MapEvents({ onBoundsChange }: { onBoundsChange?: (b: BoundsLiteral) => void }) {
+  const lastReported = useRef<BoundsLiteral | null>(null)
+
+  const emit = (map: L.Map) => {
+    if (!onBoundsChange || mapIsRemoved(map)) return
+    const b = map.getBounds()
+    const next: BoundsLiteral = {
+      north: b.getNorth(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      west: b.getWest(),
+    }
+    if (lastReported.current && boundsEqual(lastReported.current, next)) return
+    lastReported.current = next
+    onBoundsChange(next)
+  }
+
   const map = useMapEvents({
     moveend() {
-      if (onBoundsChange) reportBounds(map, onBoundsChange)
+      emit(map)
     },
     zoomend() {
-      if (onBoundsChange) reportBounds(map, onBoundsChange)
+      emit(map)
     },
   })
   // Emit once on mount too (covers the initial FitBounds fit).
   useEffect(() => {
-    if (onBoundsChange) reportBounds(map, onBoundsChange)
+    emit(map)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return null
@@ -583,8 +609,11 @@ function RestaurantMarkers({
             click: () => onSelectChange(selectedId === m.restaurant_id ? null : m.restaurant_id),
           }}
         >
+          {/* autoPan off: selecting a marker already flyTo-centers it, so the
+              popup lands in view — and an auto-pan here would move the map,
+              fire moveend, re-render, and re-pan in a loop. */}
           {popups ? (
-            <Popup closeOnClick={false} closeButton={false}>
+            <Popup closeOnClick={false} closeButton={false} autoPan={false}>
               <MarkerCard marker={m} />
             </Popup>
           ) : null}
