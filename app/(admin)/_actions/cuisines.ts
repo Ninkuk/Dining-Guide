@@ -100,7 +100,5 @@ export async function deleteCuisine(
   const { error: delErr } = await supabase.from('cuisines').delete().eq('name', name)
   if (delErr) return { ok: false, error: delErr.message }
 
-  const untaggedFrom = (rows ?? []).length
-
-  return { ok: true, data: { untaggedFrom } }
+  return { ok: true, data: { untaggedFrom: rows?.length ?? 0 } }
 }
