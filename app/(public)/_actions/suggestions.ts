@@ -7,9 +7,10 @@
 // (preview/honeypot/BotID/rate-limit/Zod) + store (rate-limit persistence) +
 // log (structured warning on block).
 
+import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { getClientIp } from "@/lib/suggestions/ip";
-import { logBlockedSubmit } from "@/lib/suggestions/log";
+import { guardReasonToBlockedReason, logBlocked } from "@/lib/suggestions/log";
 import { runSubmitGuards } from "@/lib/suggestions/spam-stack";
 import { getSubmitRateLimitStore } from "@/lib/suggestions/store";
 import type { SuggestionInput } from "@/lib/suggestions/schema";
@@ -26,18 +27,34 @@ export async function submitSuggestion(input: unknown): Promise<SubmitResult> {
       ip,
       honeypot: extractHoneypot(input),
       isPreview: process.env.VERCEL_ENV === "preview",
-      // BotID is wired in a later slice (issue #7). For now the check is a
-      // permissive no-op so the rest of the stack functions end-to-end.
-      botCheck: async () => true,
+      // BotID lives at the same layer as the honeypot — both should fail
+      // closed without leaking *why* to the submitter. `checkBotId` returns
+      // `isBot: false` in local dev (NODE_ENV !== 'production') unless
+      // `developmentOptions` is configured; real verification only runs on
+      // Vercel-deployed environments.
+      botCheck: async () => {
+        const result = await checkBotId();
+        return !result.isBot;
+      },
       store: getSubmitRateLimitStore(),
     });
   } catch (err) {
-    logBlockedSubmit({ kind, reason: "preview", ip, detail: (err as Error).message });
+    logBlocked("submission_blocked", {
+      reason: "preview_env",
+      ip,
+      suggestion_kind: kind,
+      detail: (err as Error).message,
+    });
     return { ok: false, error: "Submissions are disabled on preview deployments." };
   }
 
   if (!guarded.ok) {
-    logBlockedSubmit({ kind, reason: guarded.reason, ip, detail: guarded.detail });
+    logBlocked("submission_blocked", {
+      reason: guardReasonToBlockedReason(guarded.reason),
+      ip,
+      suggestion_kind: kind,
+      detail: guarded.detail,
+    });
     return { ok: false, error: errorMessageFor(guarded.reason), reason: guarded.reason };
   }
 
