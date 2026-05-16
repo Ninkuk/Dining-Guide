@@ -1,31 +1,27 @@
-import { Suspense } from 'react'
-import { notFound } from 'next/navigation'
-import { BackLink } from '@/components/BackLink'
-import { Skeleton } from '@/components/ui/skeleton'
-import { RestaurantForm } from '@/components/admin/RestaurantForm'
-import { getRestaurantBySlug } from '@/lib/queries/restaurants'
-import { getCuisines } from '@/lib/queries/cuisines'
-import type { RestaurantInput } from '@/lib/schemas/restaurant'
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { BackLink } from "@/components/BackLink";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RestaurantForm } from "@/components/admin/RestaurantForm";
+import { getRestaurantBySlug } from "@/lib/queries/restaurants";
+import { getCuisines } from "@/lib/queries/cuisines";
+import type { RestaurantInput } from "@/lib/schemas/restaurant";
 
-type Params = { slug: string }
+type Params = { slug: string };
 
 export async function generateMetadata({ params }: { params: Promise<Params> }) {
-  const { slug } = await params
-  return { title: `Edit ${slug}`, robots: { index: false, follow: false } }
+  const { slug } = await params;
+  return { title: `Edit ${slug}`, robots: { index: false, follow: false } };
 }
 
-export default function EditRestaurantPage({
-  params,
-}: {
-  params: Promise<Params>
-}) {
+export default function EditRestaurantPage({ params }: { params: Promise<Params> }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-6 sm:py-8">
       <Suspense fallback={<EditSkeleton />}>
         <FormHost params={params} />
       </Suspense>
     </div>
-  )
+  );
 }
 
 function EditSkeleton() {
@@ -39,29 +35,26 @@ function EditSkeleton() {
       </div>
       <Skeleton className="h-[600px] w-full rounded-2xl" />
     </>
-  )
+  );
 }
 
 async function FormHost({ params }: { params: Promise<Params> }) {
-  const { slug } = await params
-  const [restaurant, cuisines] = await Promise.all([
-    getRestaurantBySlug(slug),
-    getCuisines(),
-  ])
+  const { slug } = await params;
+  const [restaurant, cuisines] = await Promise.all([getRestaurantBySlug(slug), getCuisines()]);
 
-  if (!restaurant) notFound()
+  if (!restaurant) notFound();
 
   const defaults: RestaurantInput = {
     id: restaurant.id,
     name: restaurant.name,
     slug: restaurant.slug,
     cuisine: restaurant.cuisine ?? [],
-    occasion: (restaurant.occasion as RestaurantInput['occasion']) ?? null,
-    wallet: (restaurant.wallet as RestaurantInput['wallet']) ?? null,
+    occasion: (restaurant.occasion as RestaurantInput["occasion"]) ?? null,
+    wallet: (restaurant.wallet as RestaurantInput["wallet"]) ?? null,
     rating: restaurant.rating ?? null,
-    vegetarian: (restaurant.vegetarian as RestaurantInput['vegetarian']) ?? null,
+    vegetarian: (restaurant.vegetarian as RestaurantInput["vegetarian"]) ?? null,
     permanently_closed: !!restaurant.permanently_closed,
-    status: (restaurant.status as RestaurantInput['status']) ?? 'visited',
+    status: (restaurant.status as RestaurantInput["status"]) ?? "visited",
     visited_at: restaurant.visited_at ?? null,
     photo_url: restaurant.photo_url ?? null,
     notes: restaurant.notes ?? null,
@@ -76,23 +69,23 @@ async function FormHost({ params }: { params: Promise<Params> }) {
       latitude: l.latitude,
       longitude: l.longitude,
     })),
-  }
+  };
 
   return (
     <>
       <header className="flex flex-col gap-3">
         <BackLink href={`/${restaurant.slug}`} label={restaurant.name} preferHistoryBack />
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="text-muted-foreground text-xs font-medium tracking-[0.18em] uppercase">
           Editing
         </p>
-        <h1 className="font-heading text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+        <h1 className="font-heading text-4xl leading-[1.05] font-medium tracking-tight sm:text-5xl">
           {restaurant.name}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Update anything below. Only the name is required.
         </p>
       </header>
       <RestaurantForm mode="edit" defaultValues={defaults} cuisineOptions={cuisines} />
     </>
-  )
+  );
 }

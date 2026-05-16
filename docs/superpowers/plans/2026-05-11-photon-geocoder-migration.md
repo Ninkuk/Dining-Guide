@@ -88,9 +88,7 @@ describe("formatPhotonLabel", () => {
         postcode: "85004",
         country: "United States",
       }),
-    ).toBe(
-      "Pizzeria Bianco, 623 E Adams St, Garfield, Phoenix, Arizona, 85004, United States",
-    );
+    ).toBe("Pizzeria Bianco, 623 E Adams St, Garfield, Phoenix, Arizona, 85004, United States");
   });
 
   it("skips missing parts and never emits empty segments or doubled commas", () => {
@@ -104,15 +102,15 @@ describe("formatPhotonLabel", () => {
   });
 
   it("drops a duplicate when name equals the street or city", () => {
-    expect(
-      formatPhotonLabel({ name: "Tempe", city: "Tempe", state: "Arizona" }),
-    ).toBe("Tempe, Arizona");
+    expect(formatPhotonLabel({ name: "Tempe", city: "Tempe", state: "Arizona" })).toBe(
+      "Tempe, Arizona",
+    );
   });
 
   it("falls back to town/village/county when city is absent", () => {
-    expect(
-      formatPhotonLabel({ name: "Cafe", village: "Jerome", state: "Arizona" }),
-    ).toBe("Cafe, Jerome, Arizona");
+    expect(formatPhotonLabel({ name: "Cafe", village: "Jerome", state: "Arizona" })).toBe(
+      "Cafe, Jerome, Arizona",
+    );
   });
 
   it("returns an empty string when given nothing usable", () => {
@@ -161,11 +159,7 @@ describe("geocodeAutocomplete", () => {
         },
       ],
     });
-    const out = await geocodeAutocomplete(
-      "bianco",
-      5,
-      "-114.85,31.30,-109.00,37.05",
-    );
+    const out = await geocodeAutocomplete("bianco", 5, "-114.85,31.30,-109.00,37.05");
     expect(out).toEqual([
       {
         latitude: 33.42,
@@ -190,11 +184,7 @@ describe("geocodeAutocomplete", () => {
         ],
       },
     );
-    const out = await geocodeAutocomplete(
-      "le cinq",
-      5,
-      "-114.85,31.30,-109.00,37.05",
-    );
+    const out = await geocodeAutocomplete("le cinq", 5, "-114.85,31.30,-109.00,37.05");
     expect(out).toEqual([
       {
         latitude: 48.85,
@@ -273,15 +263,7 @@ const queue = new RateLimitedQueue();
 export function formatPhotonLabel(p: PhotonProperties): string {
   const street = [p.housenumber, p.street].filter(Boolean).join(" ");
   const locality = p.city ?? p.town ?? p.village ?? p.county;
-  const parts = [
-    p.name,
-    street,
-    p.district,
-    locality,
-    p.state,
-    p.postcode,
-    p.country,
-  ];
+  const parts = [p.name, street, p.district, locality, p.state, p.postcode, p.country];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const part of parts) {
@@ -329,9 +311,7 @@ function photon(q: string, opts: PhotonOpts): Promise<PhotonFeature[]> {
 
     const res = await fetch(url, { headers: { Accept: "application/json" } });
     if (!res.ok) {
-      throw new Error(
-        `Photon ${res.status}: ${await res.text().catch(() => "")}`,
-      );
+      throw new Error(`Photon ${res.status}: ${await res.text().catch(() => "")}`);
     }
     const data = (await res.json()) as { features?: PhotonFeature[] };
     return data.features ?? [];

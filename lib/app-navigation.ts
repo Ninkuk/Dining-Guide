@@ -17,18 +17,18 @@
  * exactly the "fresh, foreign history stack" signal we want.
  */
 
-let trail: string[] = []
+const trail: string[] = [];
 
 export function recordNavigation(path: string): void {
-  if (trail[trail.length - 1] === path) return // re-render / no-op
+  if (trail[trail.length - 1] === path) return; // re-render / no-op
   if (trail[trail.length - 2] === path) {
-    trail.pop() // user went back
+    trail.pop(); // user went back
   } else {
-    trail.push(path)
+    trail.push(path);
   }
 }
 
 /** The pathname the user was on immediately before the current one, if any. */
 export function getPreviousPath(): string | undefined {
-  return trail[trail.length - 2]
+  return trail[trail.length - 2];
 }

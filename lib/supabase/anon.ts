@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
 /**
  * Cookie-free Supabase client for purely public reads. `lib/supabase/server.ts`
@@ -16,6 +16,6 @@ export function createAnonClient() {
         persistSession: false,
         autoRefreshToken: false,
       },
-    }
-  )
+    },
+  );
 }

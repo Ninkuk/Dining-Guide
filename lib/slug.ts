@@ -6,13 +6,13 @@
 //   - restaurants_slug_not_reserved (FORBIDDEN_SLUGS)
 // If you change either side, change both.
 
-export const FORBIDDEN_SLUGS = ['map', 'stats', 'new', 'api', 'auth'] as const
-export type ForbiddenSlug = (typeof FORBIDDEN_SLUGS)[number]
+export const FORBIDDEN_SLUGS = ["map", "stats", "new", "api", "auth"] as const;
+export type ForbiddenSlug = (typeof FORBIDDEN_SLUGS)[number];
 
-const KEBAB_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const KEBAB_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 // "Combining Diacritical Marks" block. NFKD splits accents into base + one of
 // these (e.g. "é" → "e" + U+0301 acute), so stripping this range removes them.
-const COMBINING_MARKS = /[̀-ͯ]/g
+const COMBINING_MARKS = /[̀-ͯ]/g;
 
 /**
  * Normalize a name to a kebab-case slug. No external dep:
@@ -24,17 +24,17 @@ const COMBINING_MARKS = /[̀-ͯ]/g
  */
 export function slugify(input: string): string {
   return input
-    .normalize('NFKD')
-    .replace(COMBINING_MARKS, '')
+    .normalize("NFKD")
+    .replace(COMBINING_MARKS, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export function isForbiddenSlug(slug: string): boolean {
-  return (FORBIDDEN_SLUGS as readonly string[]).includes(slug)
+  return (FORBIDDEN_SLUGS as readonly string[]).includes(slug);
 }
 
 export function isValidSlug(slug: string): boolean {
-  return KEBAB_REGEX.test(slug) && !isForbiddenSlug(slug)
+  return KEBAB_REGEX.test(slug) && !isForbiddenSlug(slug);
 }

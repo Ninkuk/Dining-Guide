@@ -1,16 +1,12 @@
-import { RestaurantTableRow } from '@/components/RestaurantTableRow'
-import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
+import { RestaurantTableRow } from "@/components/RestaurantTableRow";
+import type { RestaurantWithLocations } from "@/lib/queries/restaurants";
 
-export function RestaurantTableView({
-  restaurants,
-}: {
-  restaurants: RestaurantWithLocations[]
-}) {
+export function RestaurantTableView({ restaurants }: { restaurants: RestaurantWithLocations[] }) {
   return (
-    <ul className="divide-y divide-border/60 overflow-hidden rounded-xl bg-card ring-1 ring-foreground/5">
+    <ul className="divide-border/60 bg-card ring-foreground/5 divide-y overflow-hidden rounded-xl ring-1">
       {restaurants.map((r) => (
         <RestaurantTableRow key={r.id} restaurant={r} />
       ))}
     </ul>
-  )
+  );
 }

@@ -1,19 +1,19 @@
-import { Suspense } from 'react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { EditorialHeader } from '@/components/EditorialHeader'
-import { RestaurantList } from '@/components/RestaurantList'
-import { getAllRestaurants, toMapPoints } from '@/lib/queries/restaurants'
-import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
-import type { Metadata } from 'next'
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, socialMetadata } from '@/lib/seo'
+import { Suspense } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EditorialHeader } from "@/components/EditorialHeader";
+import { RestaurantList } from "@/components/RestaurantList";
+import { getAllRestaurants, toMapPoints } from "@/lib/queries/restaurants";
+import type { RestaurantWithLocations } from "@/lib/queries/restaurants";
+import type { Metadata } from "next";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, socialMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = socialMetadata({
   title: `${SITE_NAME} — ${SITE_TAGLINE}`,
   description: SITE_DESCRIPTION,
-  path: '/',
-})
+  path: "/",
+});
 
 export default function HomePage() {
   return (
@@ -22,12 +22,12 @@ export default function HomePage() {
         <RestaurantsSection />
       </Suspense>
     </div>
-  )
+  );
 }
 
 async function RestaurantsSection() {
-  const restaurants = await getAllRestaurants()
-  const points = toMapPoints(restaurants)
+  const restaurants = await getAllRestaurants();
+  const points = toMapPoints(restaurants);
 
   if (restaurants.length === 0) {
     return (
@@ -35,57 +35,53 @@ async function RestaurantsSection() {
         <EditorialHeader visited={0} cities={0} cuisines={0} />
         <NoDataEmpty />
       </>
-    )
+    );
   }
 
-  const counts = summarize(restaurants)
+  const counts = summarize(restaurants);
 
   return (
     <>
-      <EditorialHeader
-        visited={counts.visited}
-        cities={counts.cities}
-        cuisines={counts.cuisines}
-      />
+      <EditorialHeader visited={counts.visited} cities={counts.cities} cuisines={counts.cuisines} />
       <RestaurantList restaurants={restaurants} points={points} />
     </>
-  )
+  );
 }
 
 function summarize(restaurants: RestaurantWithLocations[]) {
-  const cities = new Set<string>()
-  const cuisines = new Set<string>()
-  let visited = 0
+  const cities = new Set<string>();
+  const cuisines = new Set<string>();
+  let visited = 0;
   for (const r of restaurants) {
-    if (r.status === 'visited') visited += 1
-    for (const c of r.cuisine ?? []) cuisines.add(c)
+    if (r.status === "visited") visited += 1;
+    for (const c of r.cuisine ?? []) cuisines.add(c);
     for (const loc of r.locations ?? []) {
-      const city = loc.city?.trim()
-      if (city) cities.add(city)
+      const city = loc.city?.trim();
+      if (city) cities.add(city);
     }
   }
-  return { visited, cities: cities.size, cuisines: cuisines.size }
+  return { visited, cities: cities.size, cuisines: cuisines.size };
 }
 
 function NoDataEmpty() {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 px-6 py-24 text-center">
+    <div className="border-border/60 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-24 text-center">
       <h2 className="text-lg font-medium">No restaurants yet</h2>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        Sign in as the admin and add your first one. Public visitors will see
-        cards here once data is loaded.
+      <p className="text-muted-foreground max-w-sm text-sm">
+        Sign in as the admin and add your first one. Public visitors will see cards here once data
+        is loaded.
       </p>
       <Button asChild size="sm">
         <Link href="/auth/login">Sign in to add</Link>
       </Button>
     </div>
-  )
+  );
 }
 
 function ListSkeleton() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-6">
+      <div className="border-border/60 flex flex-col gap-3 border-b pb-6">
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-12 w-3/4" />
         <Skeleton className="h-12 w-2/3" />
@@ -103,5 +99,5 @@ function ListSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }

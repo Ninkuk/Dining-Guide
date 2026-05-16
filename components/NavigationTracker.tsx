@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { usePathname } from 'next/navigation'
-import { recordNavigation } from '@/lib/app-navigation'
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { recordNavigation } from "@/lib/app-navigation";
 
 /**
  * Records every client-side route change into the in-memory navigation trail
@@ -10,11 +10,11 @@ import { recordNavigation } from '@/lib/app-navigation'
  * navigations, including server-action `redirect()`s.
  */
 export function NavigationTracker() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   useEffect(() => {
-    recordNavigation(pathname)
-  }, [pathname])
+    recordNavigation(pathname);
+  }, [pathname]);
 
-  return null
+  return null;
 }

@@ -1,18 +1,9 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import {
-  BarChart3,
-  CircleUser,
-  LogIn,
-  LogOut,
-  Monitor,
-  Moon,
-  Plus,
-  Sun,
-} from 'lucide-react'
-import { useTheme } from 'next-themes'
-import { Button } from '@/components/ui/button'
+import Link from "next/link";
+import { BarChart3, CircleUser, LogIn, LogOut, Monitor, Moon, Plus, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,12 +11,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu";
 
-type AccountMenuProps = { signedIn: boolean }
+type AccountMenuProps = { signedIn: boolean };
 
 export function AccountMenu({ signedIn }: AccountMenuProps) {
-  const { setTheme } = useTheme()
+  const { setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -52,15 +43,15 @@ export function AccountMenu({ signedIn }: AccountMenuProps) {
 
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => setTheme('light')}>
+        <DropdownMenuItem onClick={() => setTheme("light")}>
           <Sun />
           Light
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('dark')}>
+        <DropdownMenuItem onClick={() => setTheme("dark")}>
           <Moon />
           Dark
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>
+        <DropdownMenuItem onClick={() => setTheme("system")}>
           <Monitor />
           System
         </DropdownMenuItem>
@@ -85,5 +76,5 @@ export function AccountMenu({ signedIn }: AccountMenuProps) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

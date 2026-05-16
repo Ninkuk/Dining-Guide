@@ -5,55 +5,53 @@ export function stripEmojis(s: string): string {
   // \p{Extended_Pictographic} doesn't include the variation-selector (U+FE0F)
   // or zero-width-joiner (U+200D) that combine with base chars to render as
   // emoji. Strip those too, or "Cafe ☕️" leaves a dangling "️" on the name.
-  return s
-    .replace(/[\p{Extended_Pictographic}‍️]/gu, '')
-    .trim()
+  return s.replace(/[\p{Extended_Pictographic}‍️]/gu, "").trim();
 }
 
 export function parseCuisines(raw: string): string[] {
-  if (!raw) return []
+  if (!raw) return [];
   return Array.from(
     new Set(
       raw
         .split(/[,/]/)
         .map((c) => stripEmojis(c))
         .map((c) => c.trim())
-        .filter(Boolean)
-    )
-  )
+        .filter(Boolean),
+    ),
+  );
 }
 
 export function mapOccasion(raw: string): string | null {
-  const v = stripEmojis(raw)
-  if (!v) return null
+  const v = stripEmojis(raw);
+  if (!v) return null;
   switch (v) {
-    case 'Everyday':
-      return 'Quick'
-    case 'Casual':
-      return 'Casual'
-    case 'Nice-Casual':
-      return 'Elevated'
-    case 'Upscale':
-      return 'Fine Dine'
-    case 'Quick':
-    case 'Elevated':
-    case 'Fine Dine':
-      return v
+    case "Everyday":
+      return "Quick";
+    case "Casual":
+      return "Casual";
+    case "Nice-Casual":
+      return "Elevated";
+    case "Upscale":
+      return "Fine Dine";
+    case "Quick":
+    case "Elevated":
+    case "Fine Dine":
+      return v;
     default:
-      return null
+      return null;
   }
 }
 
 export function mapVegetarian(raw: string): string | null {
-  const v = raw.trim().toLowerCase()
-  if (v === 'yes') return 'yes'
-  if (v === 'no') return 'no'
-  return null
+  const v = raw.trim().toLowerCase();
+  if (v === "yes") return "yes";
+  if (v === "no") return "no";
+  return null;
 }
 
 export function splitCities(city: string): string[] {
   return city
-    .split(',')
+    .split(",")
     .map((c) => c.trim())
-    .filter((c) => c && c.toLowerCase() !== 'chain')
+    .filter((c) => c && c.toLowerCase() !== "chain");
 }

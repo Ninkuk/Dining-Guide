@@ -18,18 +18,15 @@ export function LocationsFieldArray() {
   return (
     <div className="flex flex-col gap-3">
       {fields.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+        <p className="border-border text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center text-sm">
           No locations yet.
         </p>
       ) : (
         <ul className="flex flex-col gap-2.5">
           {fields.map((field, i) => (
-            <li
-              key={field.id}
-              className="rounded-xl bg-card p-4 ring-1 ring-foreground/10"
-            >
+            <li key={field.id} className="bg-card ring-foreground/10 rounded-xl p-4 ring-1">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <span className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
+                <span className="text-muted-foreground/70 text-[11px] tracking-wide uppercase">
                   Location {i + 1}
                 </span>
                 <Button
@@ -91,17 +88,13 @@ export function LocationsFieldArray() {
                         id={`loc-city-${i}`}
                         value={field.value ?? ""}
                         onChange={(e) =>
-                          field.onChange(
-                            e.target.value.trim().length === 0
-                              ? null
-                              : e.target.value,
-                          )
+                          field.onChange(e.target.value.trim().length === 0 ? null : e.target.value)
                         }
                         placeholder="e.g. Tempe"
                       />
                     )}
                   />
-                  <p className="text-[11px] text-muted-foreground/70">
+                  <p className="text-muted-foreground/70 text-[11px]">
                     Filled in from the address — edit if needed.
                   </p>
                 </div>

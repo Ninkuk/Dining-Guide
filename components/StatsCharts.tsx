@@ -1,89 +1,70 @@
-'use client'
+"use client";
 
 // All charts in /stats. Takes pre-aggregated data from getStatsData() — zero
 // client-side aggregation. Recharts under the hood via shadcn's `Chart`
 // primitives.
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from '@/components/ui/chart'
-import type { StatsData } from '@/lib/queries/restaurants'
+} from "@/components/ui/chart";
+import type { StatsData } from "@/lib/queries/restaurants";
 
 const CHART_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-3)',
-  'var(--chart-4)',
-  'var(--chart-5)',
-]
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
 
 // ---------- Stat cards ----------
 
 export function StatTiles({ data }: { data: StatsData }) {
   const tiles = [
-    { label: 'Total', value: data.totalRestaurants },
-    { label: 'Visited', value: data.statusTotals.visited },
-    { label: 'Want to try', value: data.statusTotals.want_to_try },
-    { label: 'Permanently closed', value: data.closedTotal },
-  ]
+    { label: "Total", value: data.totalRestaurants },
+    { label: "Visited", value: data.statusTotals.visited },
+    { label: "Want to try", value: data.statusTotals.want_to_try },
+    { label: "Permanently closed", value: data.closedTotal },
+  ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {tiles.map((t) => (
         <Card key={t.label}>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs uppercase tracking-wide">
-              {t.label}
-            </CardDescription>
+            <CardDescription className="text-xs tracking-wide uppercase">{t.label}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-medium tracking-tight tabular-nums">
-              {t.value}
-            </div>
+            <div className="text-2xl font-medium tracking-tight tabular-nums">{t.value}</div>
           </CardContent>
         </Card>
       ))}
     </div>
-  )
+  );
 }
 
 // ---------- Cuisine bar (horizontal, top N + Other) ----------
 
 function topNWithOther(
   counts: Record<string, number>,
-  n: number
+  n: number,
 ): Array<{ name: string; count: number }> {
   const sorted = Object.entries(counts)
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-  if (sorted.length <= n) return sorted
-  const top = sorted.slice(0, n)
-  const otherCount = sorted.slice(n).reduce((s, x) => s + x.count, 0)
-  return [...top, { name: 'Other', count: otherCount }]
+    .sort((a, b) => b.count - a.count);
+  if (sorted.length <= n) return sorted;
+  const top = sorted.slice(0, n);
+  const otherCount = sorted.slice(n).reduce((s, x) => s + x.count, 0);
+  return [...top, { name: "Other", count: otherCount }];
 }
 
 export function CuisineBar({ counts }: { counts: Record<string, number> }) {
-  const data = topNWithOther(counts, 10)
-  const config: ChartConfig = { count: { label: 'Restaurants', color: 'var(--chart-1)' } }
+  const data = topNWithOther(counts, 10);
+  const config: ChartConfig = { count: { label: "Restaurants", color: "var(--chart-1)" } };
 
   return (
     <Card>
@@ -103,25 +84,21 @@ export function CuisineBar({ counts }: { counts: Record<string, number> }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ---------- Rating bar ----------
 
-export function RatingBar({
-  dist,
-}: {
-  dist: StatsData['ratingDistribution']
-}) {
+export function RatingBar({ dist }: { dist: StatsData["ratingDistribution"] }) {
   const data = [
-    { key: '1', count: dist['1'] },
-    { key: '2', count: dist['2'] },
-    { key: '3', count: dist['3'] },
-    { key: '4', count: dist['4'] },
-    { key: '5', count: dist['5'] },
-    { key: 'unrated', count: dist.unrated },
-  ]
-  const config: ChartConfig = { count: { label: 'Restaurants', color: 'var(--chart-2)' } }
+    { key: "1", count: dist["1"] },
+    { key: "2", count: dist["2"] },
+    { key: "3", count: dist["3"] },
+    { key: "4", count: dist["4"] },
+    { key: "5", count: dist["5"] },
+    { key: "unrated", count: dist.unrated },
+  ];
+  const config: ChartConfig = { count: { label: "Restaurants", color: "var(--chart-2)" } };
   return (
     <Card>
       <CardHeader>
@@ -140,7 +117,7 @@ export function RatingBar({
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ---------- City bar (horizontal, sorted desc) ----------
@@ -149,8 +126,8 @@ export function CityBar({ counts }: { counts: Record<string, number> }) {
   const data = Object.entries(counts)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 15)
-  const config: ChartConfig = { count: { label: 'Locations', color: 'var(--chart-3)' } }
+    .slice(0, 15);
+  const config: ChartConfig = { count: { label: "Locations", color: "var(--chart-3)" } };
   return (
     <Card>
       <CardHeader>
@@ -169,24 +146,20 @@ export function CityBar({ counts }: { counts: Record<string, number> }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ---------- Status donut ----------
 
-export function StatusDonut({
-  totals,
-}: {
-  totals: StatsData['statusTotals']
-}) {
+export function StatusDonut({ totals }: { totals: StatsData["statusTotals"] }) {
   const data = [
-    { name: 'Visited', value: totals.visited, fill: 'var(--chart-1)' },
-    { name: 'Want to try', value: totals.want_to_try, fill: 'var(--chart-3)' },
-  ]
+    { name: "Visited", value: totals.visited, fill: "var(--chart-1)" },
+    { name: "Want to try", value: totals.want_to_try, fill: "var(--chart-3)" },
+  ];
   const config: ChartConfig = {
-    visited: { label: 'Visited', color: 'var(--chart-1)' },
-    want_to_try: { label: 'Want to try', color: 'var(--chart-3)' },
-  }
+    visited: { label: "Visited", color: "var(--chart-1)" },
+    want_to_try: { label: "Want to try", color: "var(--chart-3)" },
+  };
   return (
     <Card>
       <CardHeader>
@@ -213,24 +186,20 @@ export function StatusDonut({
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ---------- Occasion / Wallet bars ----------
 
-export function OccasionBar({
-  counts,
-}: {
-  counts: StatsData['occasionCounts']
-}) {
+export function OccasionBar({ counts }: { counts: StatsData["occasionCounts"] }) {
   const data = [
-    { key: 'Quick', count: counts.Quick },
-    { key: 'Casual', count: counts.Casual },
-    { key: 'Elevated', count: counts.Elevated },
-    { key: 'Fine Dine', count: counts['Fine Dine'] },
-    { key: 'unset', count: counts.unset },
-  ]
-  const config: ChartConfig = { count: { label: 'Restaurants', color: 'var(--chart-4)' } }
+    { key: "Quick", count: counts.Quick },
+    { key: "Casual", count: counts.Casual },
+    { key: "Elevated", count: counts.Elevated },
+    { key: "Fine Dine", count: counts["Fine Dine"] },
+    { key: "unset", count: counts.unset },
+  ];
+  const config: ChartConfig = { count: { label: "Restaurants", color: "var(--chart-4)" } };
   return (
     <Card>
       <CardHeader>
@@ -249,22 +218,18 @@ export function OccasionBar({
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }
 
-export function WalletBar({
-  counts,
-}: {
-  counts: StatsData['walletCounts']
-}) {
+export function WalletBar({ counts }: { counts: StatsData["walletCounts"] }) {
   const data = [
-    { key: 'Cheap', count: counts.Cheap },
-    { key: 'Normal', count: counts.Normal },
-    { key: 'Splurge', count: counts.Splurge },
-    { key: 'Big night', count: counts['Big night'] },
-    { key: 'unset', count: counts.unset },
-  ]
-  const config: ChartConfig = { count: { label: 'Restaurants', color: 'var(--chart-5)' } }
+    { key: "Cheap", count: counts.Cheap },
+    { key: "Normal", count: counts.Normal },
+    { key: "Splurge", count: counts.Splurge },
+    { key: "Big night", count: counts["Big night"] },
+    { key: "unset", count: counts.unset },
+  ];
+  const config: ChartConfig = { count: { label: "Restaurants", color: "var(--chart-5)" } };
   return (
     <Card>
       <CardHeader>
@@ -283,22 +248,18 @@ export function WalletBar({
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ---------- Vegetarian-friendly bar ----------
 
-export function VegetarianBar({
-  counts,
-}: {
-  counts: StatsData['dietaryCounts']
-}) {
+export function VegetarianBar({ counts }: { counts: StatsData["dietaryCounts"] }) {
   const data = [
-    { key: 'Yes', count: counts.vegetarian.yes },
-    { key: 'No', count: counts.vegetarian.no },
-    { key: 'Unknown', count: counts.vegetarian.unknown },
-  ]
-  const config: ChartConfig = { count: { label: 'Restaurants', color: CHART_COLORS[0] } }
+    { key: "Yes", count: counts.vegetarian.yes },
+    { key: "No", count: counts.vegetarian.no },
+    { key: "Unknown", count: counts.vegetarian.unknown },
+  ];
+  const config: ChartConfig = { count: { label: "Restaurants", color: CHART_COLORS[0] } };
   return (
     <Card>
       <CardHeader>
@@ -317,5 +278,5 @@ export function VegetarianBar({
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

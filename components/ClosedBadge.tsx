@@ -1,5 +1,5 @@
-import { Ban } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Ban } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * "Permanently closed" chip — a muted, slightly somber counterpart to
@@ -10,12 +10,12 @@ export function ClosedBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground',
-        className
+        "bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        className,
       )}
     >
       <Ban className="size-3" strokeWidth={2} aria-hidden />
       Permanently closed
     </span>
-  )
+  );
 }

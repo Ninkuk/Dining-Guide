@@ -186,7 +186,7 @@
   position: relative;
 }
 .rg-locate-dot::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: 9999px;
@@ -194,7 +194,7 @@
   animation: rg-locate-pulse 2s ease-out infinite;
 }
 .rg-locate-dot::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: 9999px;

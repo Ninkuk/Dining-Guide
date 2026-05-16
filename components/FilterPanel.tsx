@@ -1,15 +1,11 @@
-'use client'
+"use client";
 
-import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Drawer,
   DrawerClose,
@@ -19,7 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/components/ui/drawer'
+} from "@/components/ui/drawer";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -29,78 +25,74 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from '@/components/ui/input-group'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { getCuisineEmoji } from '@/lib/cuisines'
-import { cn } from '@/lib/utils'
-import type { Facets, SortKey } from '@/components/RestaurantList'
+} from "@/components/ui/dropdown-menu";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { getCuisineEmoji } from "@/lib/cuisines";
+import { cn } from "@/lib/utils";
+import type { Facets, SortKey } from "@/components/RestaurantList";
 
 const RATING_OPTIONS = [
-  { value: '5', label: '★★★★★' },
-  { value: '4', label: '★★★★☆' },
-  { value: '3', label: '★★★☆☆' },
-  { value: '2', label: '★★☆☆☆' },
-  { value: '1', label: '★☆☆☆☆' },
-  { value: 'unrated', label: 'Unrated' },
-] as const
+  { value: "5", label: "★★★★★" },
+  { value: "4", label: "★★★★☆" },
+  { value: "3", label: "★★★☆☆" },
+  { value: "2", label: "★★☆☆☆" },
+  { value: "1", label: "★☆☆☆☆" },
+  { value: "unrated", label: "Unrated" },
+] as const;
 
 const VEGETARIAN_OPTIONS = [
-  { value: 'yes', label: 'Yes' },
-  { value: 'no', label: 'No' },
-  { value: 'unknown', label: 'Unknown' },
-] as const
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+  { value: "unknown", label: "Unknown" },
+] as const;
 
 const WALLET_OPTIONS = [
-  { value: 'Cheap', label: 'Cheap' },
-  { value: 'Normal', label: 'Normal' },
-  { value: 'Splurge', label: 'Splurge' },
-  { value: 'Big night', label: 'Big night' },
-] as const
+  { value: "Cheap", label: "Cheap" },
+  { value: "Normal", label: "Normal" },
+  { value: "Splurge", label: "Splurge" },
+  { value: "Big night", label: "Big night" },
+] as const;
 
 const STATUS_OPTIONS = [
-  { value: 'visited', label: 'Visited' },
-  { value: 'want_to_try', label: 'Want to try' },
-  { value: 'permanently_closed', label: 'Permanently closed' },
-] as const
+  { value: "visited", label: "Visited" },
+  { value: "want_to_try", label: "Want to try" },
+  { value: "permanently_closed", label: "Permanently closed" },
+] as const;
 
 const SORT_OPTIONS: ReadonlyArray<{ value: SortKey; label: string }> = [
-  { value: 'rating-desc', label: 'Highest rating' },
-  { value: 'name', label: 'Name' },
-  { value: 'recent', label: 'Recently added' },
-  { value: 'recent-visited', label: 'Recently visited' },
-]
+  { value: "rating-desc", label: "Highest rating" },
+  { value: "name", label: "Name" },
+  { value: "recent", label: "Recently added" },
+  { value: "recent-visited", label: "Recently visited" },
+];
 
 type FilterPanelProps = {
-  facets: Facets
-  search: string
-  onSearchChange: (value: string) => void
-  cuisines: string[]
-  onCuisinesChange: (value: string[]) => void
-  cities: string[]
-  onCitiesChange: (value: string[]) => void
-  ratings: string[]
-  onRatingsChange: (value: string[]) => void
-  occasions: string[]
-  onOccasionsChange: (value: string[]) => void
-  wallets: string[]
-  onWalletsChange: (value: string[]) => void
-  vegetarians: string[]
-  onVegetariansChange: (value: string[]) => void
-  statuses: string[]
-  onStatusesChange: (value: string[]) => void
-  sort: SortKey
-  onSortChange: (value: SortKey) => void
-  hasActiveFilters: boolean
-  activeFilterCount: number
-  onClearAll: () => void
-  totalCount: number
-  filteredCount: number
-}
+  facets: Facets;
+  search: string;
+  onSearchChange: (value: string) => void;
+  cuisines: string[];
+  onCuisinesChange: (value: string[]) => void;
+  cities: string[];
+  onCitiesChange: (value: string[]) => void;
+  ratings: string[];
+  onRatingsChange: (value: string[]) => void;
+  occasions: string[];
+  onOccasionsChange: (value: string[]) => void;
+  wallets: string[];
+  onWalletsChange: (value: string[]) => void;
+  vegetarians: string[];
+  onVegetariansChange: (value: string[]) => void;
+  statuses: string[];
+  onStatusesChange: (value: string[]) => void;
+  sort: SortKey;
+  onSortChange: (value: SortKey) => void;
+  hasActiveFilters: boolean;
+  activeFilterCount: number;
+  onClearAll: () => void;
+  totalCount: number;
+  filteredCount: number;
+};
 
 export function FilterPanel(props: FilterPanelProps) {
   const {
@@ -128,14 +120,14 @@ export function FilterPanel(props: FilterPanelProps) {
     onClearAll,
     totalCount,
     filteredCount,
-  } = props
+  } = props;
 
   const cuisineOptions = facets.cuisines.map((c) => ({
     value: c,
     label: `${getCuisineEmoji(c)} ${c}`,
-  }))
-  const cityOptions = facets.cities.map((c) => ({ value: c, label: c }))
-  const occasionOptions = facets.occasions.map((o) => ({ value: o, label: o }))
+  }));
+  const cityOptions = facets.cities.map((c) => ({ value: c, label: c }));
+  const occasionOptions = facets.occasions.map((o) => ({ value: o, label: o }));
 
   return (
     <div className="flex flex-col gap-3">
@@ -155,8 +147,8 @@ export function FilterPanel(props: FilterPanelProps) {
             <InputGroupAddon align="inline-end">
               <button
                 type="button"
-                onClick={() => onSearchChange('')}
-                className="rounded-full text-muted-foreground hover:text-foreground"
+                onClick={() => onSearchChange("")}
+                className="text-muted-foreground hover:text-foreground rounded-full"
                 aria-label="Clear search"
               >
                 <X className="size-4" />
@@ -186,7 +178,7 @@ export function FilterPanel(props: FilterPanelProps) {
               </DrawerDescription>
             </DrawerHeader>
 
-            <div className="flex flex-col divide-y divide-border/40 overflow-y-auto px-4">
+            <div className="divide-border/40 flex flex-col divide-y overflow-y-auto px-4">
               <DrawerSortGroup sort={sort} onSortChange={onSortChange} />
               <CheckboxFilterGroup
                 label="Cuisine"
@@ -309,10 +301,7 @@ export function FilterPanel(props: FilterPanelProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={sort}
-              onValueChange={(v) => onSortChange(v as SortKey)}
-            >
+            <DropdownMenuRadioGroup value={sort} onValueChange={(v) => onSortChange(v as SortKey)}>
               {SORT_OPTIONS.map((o) => (
                 <DropdownMenuRadioItem key={o.value} value={o.value}>
                   {o.label}
@@ -329,17 +318,17 @@ export function FilterPanel(props: FilterPanelProps) {
         ) : null}
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-muted-foreground text-xs">
         Showing {filteredCount} of {totalCount}
       </p>
     </div>
-  )
+  );
 }
 
-type Option = { value: string; label: string }
+type Option = { value: string; label: string };
 
 function toggleValue(selected: string[], value: string, checked: boolean): string[] {
-  return checked ? [...selected, value] : selected.filter((v) => v !== value)
+  return checked ? [...selected, value] : selected.filter((v) => v !== value);
 }
 
 function CollapsibleSection({
@@ -349,13 +338,13 @@ function CollapsibleSection({
   onClear,
   children,
 }: {
-  label: string
-  count: number
-  defaultOpen?: boolean
-  onClear?: () => void
-  children: ReactNode
+  label: string;
+  count: number;
+  defaultOpen?: boolean;
+  onClear?: () => void;
+  children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="py-2">
@@ -363,15 +352,15 @@ function CollapsibleSection({
         <CollapsibleTrigger className="flex flex-1 items-center gap-1.5 py-1 text-left">
           <ChevronRight
             className={cn(
-              'size-3.5 shrink-0 text-muted-foreground transition-transform',
-              open && 'rotate-90'
+              "text-muted-foreground size-3.5 shrink-0 transition-transform",
+              open && "rotate-90",
             )}
           />
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
             {label}
           </span>
           {count > 0 ? (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-foreground">
+            <span className="bg-muted text-foreground rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium">
               {count}
             </span>
           ) : null}
@@ -380,7 +369,7 @@ function CollapsibleSection({
           <button
             type="button"
             onClick={onClear}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground text-xs"
           >
             Clear
           </button>
@@ -388,15 +377,15 @@ function CollapsibleSection({
       </div>
       <CollapsibleContent className="flex flex-col pt-1">{children}</CollapsibleContent>
     </Collapsible>
-  )
+  );
 }
 
 function DrawerSortGroup({
   sort,
   onSortChange,
 }: {
-  sort: SortKey
-  onSortChange: (value: SortKey) => void
+  sort: SortKey;
+  onSortChange: (value: SortKey) => void;
 }) {
   return (
     <CollapsibleSection label="Sort by" count={0} defaultOpen>
@@ -416,7 +405,7 @@ function DrawerSortGroup({
         ))}
       </RadioGroup>
     </CollapsibleSection>
-  )
+  );
 }
 
 function CheckboxFilterGroup({
@@ -425,13 +414,13 @@ function CheckboxFilterGroup({
   onChange,
   options,
 }: {
-  label: string
-  selected: string[]
-  onChange: (value: string[]) => void
-  options: ReadonlyArray<Option>
+  label: string;
+  selected: string[];
+  onChange: (value: string[]) => void;
+  options: ReadonlyArray<Option>;
 }) {
-  if (options.length === 0) return null
-  const selectedSet = new Set(selected)
+  if (options.length === 0) return null;
+  const selectedSet = new Set(selected);
 
   return (
     <CollapsibleSection
@@ -457,7 +446,7 @@ function CheckboxFilterGroup({
         ))}
       </div>
     </CollapsibleSection>
-  )
+  );
 }
 
 function MultiFilter({
@@ -467,20 +456,20 @@ function MultiFilter({
   options,
   emptyHint,
 }: {
-  label: string
-  selected: string[]
-  onChange: (value: string[]) => void
-  options: ReadonlyArray<Option>
-  emptyHint?: string
+  label: string;
+  selected: string[];
+  onChange: (value: string[]) => void;
+  options: ReadonlyArray<Option>;
+  emptyHint?: string;
 }) {
-  const isEmpty = options.length === 0
-  const selectedSet = new Set(selected)
+  const isEmpty = options.length === 0;
+  const selectedSet = new Set(selected);
   const buttonLabel =
     selected.length === 0
       ? label
       : selected.length === 1
         ? `${label}: ${formatLabel(options, selected[0])}`
-        : `${label} (${selected.length})`
+        : `${label} (${selected.length})`;
 
   return (
     <DropdownMenu>
@@ -488,7 +477,7 @@ function MultiFilter({
         <Button
           variant="outline"
           size="sm"
-          className={cn('gap-1', selected.length > 0 && 'border-foreground/30 bg-input/60')}
+          className={cn("gap-1", selected.length > 0 && "border-foreground/30 bg-input/60")}
           disabled={isEmpty}
         >
           {buttonLabel}
@@ -498,18 +487,14 @@ function MultiFilter({
       <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto">
         <DropdownMenuLabel>{label}</DropdownMenuLabel>
         {isEmpty ? (
-          <p className="px-2 py-1 text-xs text-muted-foreground">
-            {emptyHint ?? 'No options'}
-          </p>
+          <p className="text-muted-foreground px-2 py-1 text-xs">{emptyHint ?? "No options"}</p>
         ) : (
           <>
             {options.map((opt) => (
               <DropdownMenuCheckboxItem
                 key={opt.value}
                 checked={selectedSet.has(opt.value)}
-                onCheckedChange={(checked) =>
-                  onChange(toggleValue(selected, opt.value, checked))
-                }
+                onCheckedChange={(checked) => onChange(toggleValue(selected, opt.value, checked))}
                 onSelect={(e) => e.preventDefault()}
               >
                 {opt.label}
@@ -521,7 +506,7 @@ function MultiFilter({
                 <button
                   type="button"
                   onClick={() => onChange([])}
-                  className="w-full px-2 py-1.5 text-left text-xs text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground w-full px-2 py-1.5 text-left text-xs"
                 >
                   Clear {label.toLowerCase()}
                 </button>
@@ -531,9 +516,9 @@ function MultiFilter({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }
 
 function formatLabel(options: ReadonlyArray<Option>, value: string): string {
-  return options.find((o) => o.value === value)?.label ?? value
+  return options.find((o) => o.value === value)?.label ?? value;
 }

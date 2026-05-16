@@ -1,6 +1,6 @@
-import { Suspense } from 'react'
-import { BackLink } from '@/components/BackLink'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Suspense } from "react";
+import { BackLink } from "@/components/BackLink";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   CityBar,
   CuisineBar,
@@ -10,21 +10,24 @@ import {
   StatusDonut,
   VegetarianBar,
   WalletBar,
-} from '@/components/StatsCharts'
-import { getStatsData } from '@/lib/queries/restaurants'
-import type { Metadata } from 'next'
-import { socialMetadata } from '@/lib/seo'
+} from "@/components/StatsCharts";
+import { getStatsData } from "@/lib/queries/restaurants";
+import type { Metadata } from "next";
+import { socialMetadata } from "@/lib/seo";
 
-const STATS_DESCRIPTION =
-  'Ratings, cuisines, cities, and dining habits across the journal.'
+const STATS_DESCRIPTION = "Ratings, cuisines, cities, and dining habits across the journal.";
 
 export const metadata: Metadata = {
-  title: 'Stats',
+  title: "Stats",
   description: STATS_DESCRIPTION,
-  ...socialMetadata({ title: 'Stats · Dining Guide', description: STATS_DESCRIPTION, path: '/stats' }),
-}
+  ...socialMetadata({
+    title: "Stats · Dining Guide",
+    description: STATS_DESCRIPTION,
+    path: "/stats",
+  }),
+};
 
-const MIN_ROWS_FOR_CHARTS = 3
+const MIN_ROWS_FOR_CHARTS = 3;
 
 export default function StatsPage() {
   return (
@@ -35,20 +38,18 @@ export default function StatsPage() {
         <StatsBody />
       </Suspense>
     </div>
-  )
+  );
 }
 
 async function StatsBody() {
-  const data = await getStatsData()
+  const data = await getStatsData();
 
   if (data.totalRestaurants < MIN_ROWS_FOR_CHARTS) {
     return (
       <div className="rounded-2xl border border-dashed px-6 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
-          Add a few restaurants to see stats.
-        </p>
+        <p className="text-muted-foreground text-sm">Add a few restaurants to see stats.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -65,7 +66,7 @@ async function StatsBody() {
         <VegetarianBar counts={data.dietaryCounts} />
       </div>
     </div>
-  )
+  );
 }
 
 function StatsSkeleton() {
@@ -82,5 +83,5 @@ function StatsSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
