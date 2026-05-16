@@ -49,7 +49,10 @@ async function fillMissingGeocodes(r: Restaurant): Promise<Restaurant> {
   return { ...r, locations: filled };
 }
 
-export async function createRestaurant(input: unknown): Promise<ActionResult<{ slug: string }>> {
+export async function createRestaurant(
+  input: unknown,
+  options: { fromSuggestionId?: number } = {},
+): Promise<ActionResult<{ slug: string }>> {
   assertNotPreview();
   await assertAuthed();
 
@@ -78,6 +81,23 @@ export async function createRestaurant(input: unknown): Promise<ActionResult<{ s
   if (error) {
     console.error("createRestaurant rpc error:", error);
     return { ok: false, error: error.message };
+  }
+
+  // Accept-flow: if this Restaurant came from a Suggestion, mark it accepted.
+  // Best-effort per ADR-0002 — if this fails, the Restaurant write already
+  // succeeded, the Suggestion stays pending, and the admin can manually reject.
+  if (options.fromSuggestionId != null && Number.isInteger(options.fromSuggestionId)) {
+    const { error: ackErr } = await supabase
+      .from("suggestions")
+      .update({ status: "accepted", decided_at: new Date().toISOString() })
+      .eq("id", options.fromSuggestionId)
+      .eq("status", "pending");
+    if (ackErr) {
+      console.error(
+        "createRestaurant: failed to mark suggestion accepted (restaurant was still created):",
+        ackErr,
+      );
+    }
   }
 
   const finalSlug = await fetchSlugById(Number(data));

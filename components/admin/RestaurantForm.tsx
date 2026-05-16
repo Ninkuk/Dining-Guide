@@ -79,10 +79,16 @@ export function RestaurantForm({
   mode,
   defaultValues,
   cuisineOptions,
+  fromSuggestionId,
 }: {
   mode: Mode;
   defaultValues: RestaurantInput;
   cuisineOptions: CuisineOption[];
+  /**
+   * When set, the create action also marks this Suggestion `accepted` on
+   * success. Forwarded to `createRestaurant` as `{ fromSuggestionId }`.
+   */
+  fromSuggestionId?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -109,8 +115,10 @@ export function RestaurantForm({
 
   function onSubmit(values: RestaurantInput) {
     startTransition(async () => {
-      const action = mode === "create" ? createRestaurant : updateRestaurant;
-      const res = await action(values);
+      const res =
+        mode === "create"
+          ? await createRestaurant(values, { fromSuggestionId })
+          : await updateRestaurant(values);
       if (res && "ok" in res && !res.ok) {
         toast.error(res.error);
         if (res.fields) {

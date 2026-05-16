@@ -6,7 +6,9 @@
 // edit/new form with `?from_suggestion=<id>` in a later slice (ADR-0002).
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { BackLink } from "@/components/BackLink";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RejectSuggestionButton } from "@/components/admin/RejectSuggestionButton";
 import { createClient } from "@/lib/supabase/server";
@@ -166,6 +168,11 @@ async function Queue() {
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {s.kind === "tip" ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/new?from_suggestion=${s.id}`}>Open</Link>
+                </Button>
+              ) : null}
               <RejectSuggestionButton id={s.id} />
             </div>
           </li>
