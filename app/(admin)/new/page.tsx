@@ -85,7 +85,7 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const supabase = await createClient();
   const { data: suggestion } = await supabase
     .from("suggestions")
-    .select("id, kind, status, submitter_name, payload, anything_else")
+    .select("id, kind, status, submitter_name, payload, anything_else, photo_path")
     .eq("id", id)
     .maybeSingle();
 
@@ -124,6 +124,7 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
           kind="tip"
           submitterName={suggestion.submitter_name}
           anythingElse={suggestion.anything_else}
+          hasPhoto={!!suggestion.photo_path}
         />
       ) : null}
       <RestaurantForm

@@ -8,6 +8,7 @@
 // the live Restaurant has moved on since the submitter snapshotted it.
 
 import Link from "next/link";
+import { ImageIcon } from "lucide-react";
 import { RejectSuggestionButton } from "@/components/admin/RejectSuggestionButton";
 import type { DiffChip } from "@/lib/suggestions/diff-chips";
 
@@ -18,6 +19,7 @@ export function SuggestionBanner({
   anythingElse,
   diffChips,
   baseStaleSince,
+  hasPhoto,
 }: {
   id: number;
   kind: "tip" | "correction";
@@ -30,6 +32,8 @@ export function SuggestionBanner({
    * than the Suggestion's `base_updated_at`. `undefined` means no warning.
    */
   baseStaleSince?: string;
+  /** Whether the Suggestion carries a quarantine photo to promote on save. */
+  hasPhoto?: boolean;
 }) {
   const kindLabel = kind === "tip" ? "Tip" : "Correction";
   return (
@@ -78,6 +82,12 @@ export function SuggestionBanner({
             Note
           </span>
           &ldquo;{anythingElse}&rdquo;
+        </p>
+      ) : null}
+      {hasPhoto ? (
+        <p className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+          <ImageIcon className="size-3.5" aria-hidden />
+          Photo attached — promoted to the public bucket on save unless you upload your own below.
         </p>
       ) : null}
       <p className="text-muted-foreground/70 text-[11px]">

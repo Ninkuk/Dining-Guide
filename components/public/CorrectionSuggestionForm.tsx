@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ConstrainedCuisineCombobox } from "./ConstrainedCuisineCombobox";
+import { QuarantinePhotoUpload, type QuarantinePhotoValue } from "./QuarantinePhotoUpload";
 import type { CuisineOption } from "@/components/admin/CuisineCombobox";
 import { submitSuggestion } from "@/app/(public)/_actions/suggestions";
 import type { RestaurantWithLocations } from "@/lib/queries/restaurants";
@@ -74,6 +75,7 @@ export function CorrectionSuggestionForm({
 
   const [pending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+  const [photo, setPhoto] = useState<QuarantinePhotoValue | null>(null);
   const form = useForm<FormShape>({ defaultValues: original, mode: "onSubmit" });
   const { control, register, handleSubmit, formState, watch, setValue } = form;
   const locationsArray = useFieldArray({ control, name: "locations" });
@@ -82,9 +84,10 @@ export function CorrectionSuggestionForm({
     const payload = buildSparsePayload(original, values);
     const anything = values.anything_else.trim() || null;
 
-    // If the submitter touched nothing AND wrote no note, refuse — nothing to send.
-    if (Object.keys(payload).length === 0 && !anything) {
-      toast.error("Change at least one field, or add a note in “anything else”.");
+    // If the submitter touched nothing AND wrote no note AND attached no
+    // photo, refuse — nothing to send.
+    if (Object.keys(payload).length === 0 && !anything && !photo) {
+      toast.error("Change at least one field, attach a photo, or add a note.");
       return;
     }
 
@@ -95,7 +98,7 @@ export function CorrectionSuggestionForm({
         submitter_name: values.submitter_name,
         payload,
         anything_else: anything,
-        photo_path: null,
+        photo_path: photo?.path ?? null,
         _website: values._website,
       });
       if (!res.ok) {
@@ -362,6 +365,14 @@ export function CorrectionSuggestionForm({
         />
         <span className="text-muted-foreground text-xs">
           Free text — lands on the queue item, doesn&rsquo;t auto-edit any field.
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Photo</Label>
+        <QuarantinePhotoUpload value={photo} onChange={setPhoto} />
+        <span className="text-muted-foreground text-xs">
+          Optional. Helps when proposing a closed-sign or storefront photo.
         </span>
       </div>
 

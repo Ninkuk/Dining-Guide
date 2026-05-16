@@ -1,50 +1,16 @@
 "use client";
 
-// Client-side image upload to Supabase Storage. Resizes images down to ≤1200px
-// wide via a <canvas> to keep payloads under ~200KB (JPEG q=0.8). Returns the
-// public URL via onChange so the parent form can pin it on the restaurant row.
+// Client-side image upload to Supabase Storage. The actual resize logic lives
+// in `lib/photo-resize.ts` so the anonymous Suggestion-photo upload reuses
+// the same canvas pipeline.
 
 import { useState, useRef } from "react";
 import { Upload, X } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { resizeImage } from "@/lib/photo-resize";
 import { toast } from "sonner";
-
-const MAX_WIDTH = 1200;
-const QUALITY = 0.8;
-
-async function resizeImage(file: File): Promise<Blob> {
-  const dataUrl = await new Promise<string>((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result as string);
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
-  });
-
-  const img = await new Promise<HTMLImageElement>((res, rej) => {
-    const i = new window.Image();
-    i.onload = () => res(i);
-    i.onerror = rej;
-    i.src = dataUrl;
-  });
-
-  const scale = Math.min(1, MAX_WIDTH / img.width);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas context unavailable");
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  return new Promise<Blob>((res, rej) => {
-    canvas.toBlob(
-      (blob) => (blob ? res(blob) : rej(new Error("toBlob returned null"))),
-      "image/jpeg",
-      QUALITY,
-    );
-  });
-}
 
 export function PhotoUpload({
   value,
@@ -119,7 +85,7 @@ export function PhotoUpload({
           <Upload className="mr-2 size-4" />
           {busy ? "Uploading…" : value ? "Replace photo" : "Upload photo"}
         </Button>
-        <span className="text-muted-foreground text-xs">Resized to {MAX_WIDTH}px, JPEG.</span>
+        <span className="text-muted-foreground text-xs">Resized to 1200px, JPEG.</span>
       </div>
     </div>
   );

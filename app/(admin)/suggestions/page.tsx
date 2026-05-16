@@ -9,6 +9,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
+import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/BackLink";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,7 @@ async function Queue({ searchParams }: { searchParams: Promise<SearchParams> }) 
   const query = supabase
     .from("suggestions")
     .select(
-      "id, kind, status, target_restaurant_id, submitter_name, anything_else, created_at, decided_at, admin_note, payload",
+      "id, kind, status, target_restaurant_id, submitter_name, anything_else, created_at, decided_at, admin_note, payload, photo_path",
     )
     .order("created_at", { ascending: false });
 
@@ -152,6 +153,14 @@ async function Queue({ searchParams }: { searchParams: Promise<SearchParams> }) 
                       </span>
                     ) : null}
                     <span>by {s.submitter_name}</span>
+                    {s.photo_path ? (
+                      <span
+                        className="text-muted-foreground inline-flex items-center gap-0.5"
+                        title="Photo attached"
+                      >
+                        <ImageIcon className="size-3" aria-hidden />
+                      </span>
+                    ) : null}
                     <span aria-hidden>·</span>
                     <span className="font-mono tabular-nums">
                       {formatRelativeFromNow(s.created_at)}

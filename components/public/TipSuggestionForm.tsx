@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ConstrainedCuisineCombobox } from "./ConstrainedCuisineCombobox";
+import { QuarantinePhotoUpload, type QuarantinePhotoValue } from "./QuarantinePhotoUpload";
 import type { CuisineOption } from "@/components/admin/CuisineCombobox";
 import { suggestionSchema, type SuggestionInput } from "@/lib/suggestions/schema";
 import { submitSuggestion } from "@/app/(public)/_actions/suggestions";
@@ -47,6 +48,9 @@ const DEFAULTS: FormShape = {
 export function TipSuggestionForm({ cuisines }: { cuisines: CuisineOption[] }) {
   const [pending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+  // Photo state lives outside RHF — the upload is an async side-effect, not a
+  // managed form field. We merge the resulting path into `photo_path` on submit.
+  const [photo, setPhoto] = useState<QuarantinePhotoValue | null>(null);
 
   const form = useForm<FormShape>({
     resolver: zodResolver(suggestionSchema),
@@ -63,7 +67,7 @@ export function TipSuggestionForm({ cuisines }: { cuisines: CuisineOption[] }) {
 
   function onSubmit(values: FormShape) {
     startTransition(async () => {
-      const res = await submitSuggestion(values);
+      const res = await submitSuggestion({ ...values, photo_path: photo?.path ?? null });
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -280,6 +284,11 @@ export function TipSuggestionForm({ cuisines }: { cuisines: CuisineOption[] }) {
           className="resize-y"
           placeholder="Context that doesn't fit above — chain branches, missing cuisine, dietary detail, etc."
         />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Photo</Label>
+        <QuarantinePhotoUpload value={photo} onChange={setPhoto} />
       </div>
 
       <div className="flex items-center justify-end gap-2">

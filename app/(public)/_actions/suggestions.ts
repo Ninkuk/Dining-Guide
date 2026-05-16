@@ -11,6 +11,11 @@ import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { getClientIp } from "@/lib/suggestions/ip";
 import { guardReasonToBlockedReason, logBlocked } from "@/lib/suggestions/log";
+import {
+  discardPhoto,
+  isValidQuarantinePath,
+  QUARANTINE_BUCKET,
+} from "@/lib/suggestions/photo-quarantine";
 import { runSubmitGuards } from "@/lib/suggestions/spam-stack";
 import { getSubmitRateLimitStore } from "@/lib/suggestions/store";
 import type { SuggestionInput } from "@/lib/suggestions/schema";
@@ -60,6 +65,34 @@ export async function submitSuggestion(input: unknown): Promise<SubmitResult> {
 
   const supabase = await createClient();
 
+  // Validate any submitted photo_path against the canonical UUID-prefix shape
+  // AND verify the object actually exists in the quarantine bucket. Both
+  // checks defend against a hand-forged payload claiming a path the
+  // submitter never uploaded — without the existence check, a hostile client
+  // could spam Suggestion rows pointing at fake or other users' objects.
+  const photoPath = guarded.parsed.photo_path ?? null;
+  if (photoPath) {
+    if (!isValidQuarantinePath(photoPath)) {
+      logBlocked("submission_blocked", {
+        reason: "zod",
+        ip,
+        suggestion_kind: kind,
+        detail: `invalid photo_path shape: ${photoPath}`,
+      });
+      return { ok: false, error: "Photo path failed validation." };
+    }
+    const { error: headErr } = await supabase.storage.from(QUARANTINE_BUCKET).download(photoPath);
+    if (headErr) {
+      logBlocked("submission_blocked", {
+        reason: "zod",
+        ip,
+        suggestion_kind: kind,
+        detail: `photo object missing: ${photoPath} (${headErr.message})`,
+      });
+      return { ok: false, error: "Attached photo couldn't be found." };
+    }
+  }
+
   // For Corrections, snapshot the target restaurant's updated_at at submit
   // time. ADR-0003 uses this for the queue's "Base updated since submit"
   // warning. If the lookup fails we still insert; base_updated_at just stays
@@ -86,6 +119,9 @@ export async function submitSuggestion(input: unknown): Promise<SubmitResult> {
 
   if (error) {
     console.error("submitSuggestion insert error:", error);
+    // Best-effort: if the insert failed and we already uploaded a photo,
+    // discard the orphan immediately rather than waiting for the daily cron.
+    await discardPhoto(supabase.storage, photoPath);
     return { ok: false, error: "Couldn't save your suggestion. Try again in a minute." };
   }
 

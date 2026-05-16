@@ -106,7 +106,7 @@ async function FormHost({
   const { data: suggestion } = await supabase
     .from("suggestions")
     .select(
-      "id, kind, status, target_restaurant_id, submitter_name, anything_else, payload, base_updated_at",
+      "id, kind, status, target_restaurant_id, submitter_name, anything_else, payload, base_updated_at, photo_path",
     )
     .eq("id", id)
     .maybeSingle();
@@ -172,6 +172,7 @@ async function FormHost({
         anythingElse={suggestion.anything_else}
         diffChips={chips}
         baseStaleSince={baseStaleSince}
+        hasPhoto={!!suggestion.photo_path}
       />
       <RestaurantForm
         mode="edit"

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { restaurantSchema, type Restaurant } from "@/lib/schemas/restaurant";
 import { geocodeSearch } from "@/lib/geocode";
 import { isValidSlug } from "@/lib/slug";
+import { discardPhoto, promotePhoto } from "@/lib/suggestions/photo-quarantine";
 
 type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -22,6 +23,48 @@ async function assertAuthed() {
   if (!data?.claims) {
     throw new Error("Unauthenticated");
   }
+}
+
+/**
+ * If we're accepting a Suggestion that included a photo, promote that photo
+ * out of the quarantine bucket. Three branches:
+ *
+ *   - admin didn't override photo_url on the form → promote, write the
+ *     resulting public URL into `r.photo_url`, return the enriched record
+ *   - admin uploaded their own photo (form.photo_url set) → discard the
+ *     submitter's quarantine copy, return r unchanged
+ *   - suggestion had no photo → return r unchanged
+ *
+ * Runs BEFORE the upsert so `restaurants.photo_url` lands in one round-trip.
+ * A promote failure leaves `r.photo_url` whatever the form sent (commonly
+ * null) and is logged; the admin can re-attempt by uploading manually.
+ */
+async function applyAcceptedPhoto(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  r: Restaurant,
+  fromSuggestionId: number | undefined,
+): Promise<Restaurant> {
+  if (!fromSuggestionId) return r;
+  const { data: suggestion } = await supabase
+    .from("suggestions")
+    .select("photo_path")
+    .eq("id", fromSuggestionId)
+    .maybeSingle();
+  const quarantinePath = suggestion?.photo_path ?? null;
+  if (!quarantinePath) return r;
+
+  if (r.photo_url) {
+    // Admin attached their own. Quarantine copy is no longer needed.
+    await discardPhoto(supabase.storage, quarantinePath);
+    return r;
+  }
+
+  const result = await promotePhoto(supabase.storage, quarantinePath);
+  if (!result.ok) {
+    console.error("applyAcceptedPhoto: promote failed:", result.error);
+    return r;
+  }
+  return { ...r, photo_url: result.publicUrl };
 }
 
 // Auto-geocode any location missing lat/lng before insert. Called server-side
@@ -69,9 +112,10 @@ export async function createRestaurant(
     };
   }
 
-  const enriched = await fillMissingGeocodes(parsed.data);
-
   const supabase = await createClient();
+  const geocoded = await fillMissingGeocodes(parsed.data);
+  const enriched = await applyAcceptedPhoto(supabase, geocoded, options.fromSuggestionId);
+
   const { data, error } = await supabase.rpc("upsert_restaurant_with_locations", {
     payload: enriched as unknown as Parameters<typeof supabase.rpc>[1] extends { payload: infer P }
       ? P
@@ -126,9 +170,10 @@ export async function updateRestaurant(
     };
   }
 
-  const enriched = await fillMissingGeocodes(parsed.data);
-
   const supabase = await createClient();
+  const geocoded = await fillMissingGeocodes(parsed.data);
+  const enriched = await applyAcceptedPhoto(supabase, geocoded, options.fromSuggestionId);
+
   const { error } = await supabase.rpc("upsert_restaurant_with_locations", {
     payload: enriched as unknown as Parameters<typeof supabase.rpc>[1] extends { payload: infer P }
       ? P
