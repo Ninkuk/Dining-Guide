@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EditorialHeader } from '@/components/EditorialHeader'
 import { RestaurantList } from '@/components/RestaurantList'
-import { getAllRestaurants, getForMap } from '@/lib/queries/restaurants'
+import { getAllRestaurants, toMapPoints } from '@/lib/queries/restaurants'
 import type { RestaurantWithLocations } from '@/lib/queries/restaurants'
 import type { Metadata } from 'next'
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, socialMetadata } from '@/lib/seo'
@@ -26,10 +26,8 @@ export default function HomePage() {
 }
 
 async function RestaurantsSection() {
-  const [restaurants, points] = await Promise.all([
-    getAllRestaurants(),
-    getForMap(),
-  ])
+  const restaurants = await getAllRestaurants()
+  const points = toMapPoints(restaurants)
 
   if (restaurants.length === 0) {
     return (

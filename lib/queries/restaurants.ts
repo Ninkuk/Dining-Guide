@@ -39,6 +39,7 @@ export async function getRestaurantBySlug(
   return (data as RestaurantWithLocations | null) ?? null
 }
 
+/** Flattened restaurant×location shape consumed by the map view. */
 export type MapPoint = {
   restaurant_id: number
   slug: string
@@ -50,39 +51,22 @@ export type MapPoint = {
   longitude: number
 }
 
-/** Flat list of geocoded points for the /map view. Skips locations missing lat/lng. */
-export async function getForMap(): Promise<MapPoint[]> {
-  const supabase = createAnonClient()
-  const { data, error } = await supabase
-    .from('locations')
-    .select('latitude, longitude, city, restaurant_id, restaurants!inner(slug, name, status, rating)')
-    .not('latitude', 'is', null)
-    .not('longitude', 'is', null)
-
-  if (error) {
-    throw new Error(`getForMap failed: ${error.message}`)
-  }
-
-  type Row = {
-    latitude: number | null
-    longitude: number | null
-    city: string | null
-    restaurant_id: number
-    restaurants: { slug: string; name: string; status: string; rating: number | null } | null
-  }
-
-  return ((data ?? []) as Row[])
-    .filter((r) => r.latitude != null && r.longitude != null && r.restaurants != null)
-    .map((r) => ({
-      restaurant_id: r.restaurant_id,
-      slug: r.restaurants!.slug,
-      name: r.restaurants!.name,
-      status: r.restaurants!.status,
-      rating: r.restaurants!.rating,
-      city: r.city,
-      latitude: r.latitude as number,
-      longitude: r.longitude as number,
-    }))
+/** Project geocoded restaurants into a flat marker list. Skips missing lat/lng. */
+export function toMapPoints(restaurants: RestaurantWithLocations[]): MapPoint[] {
+  return restaurants.flatMap((r) =>
+    r.locations
+      .filter((l) => l.latitude != null && l.longitude != null)
+      .map((l) => ({
+        restaurant_id: r.id,
+        slug: r.slug,
+        name: r.name,
+        status: r.status,
+        rating: r.rating,
+        city: l.city,
+        latitude: l.latitude as number,
+        longitude: l.longitude as number,
+      }))
+  )
 }
 
 export type StatsData = {
