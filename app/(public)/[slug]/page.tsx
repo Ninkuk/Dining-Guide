@@ -123,6 +123,15 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
           <ShareButton name={r.name} slug={r.slug} />
           <AdminActions slug={r.slug} id={r.id} name={r.name} locationCount={r.locations.length} />
         </div>
+        <p className="text-muted-foreground text-xs">
+          spot an error?{" "}
+          <Link
+            href={`/${r.slug}/suggest`}
+            className="hover:text-foreground underline-offset-4 hover:underline"
+          >
+            suggest an edit
+          </Link>
+        </p>
       </header>
 
       {r.photo_url ? (

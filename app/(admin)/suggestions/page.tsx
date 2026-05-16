@@ -2,11 +2,14 @@
 // (lib/supabase/proxy.ts adds /suggestions(/.*)? to its write-route patterns),
 // so anonymous visitors get redirected to /auth/login.
 //
-// v1 covers pending-list display + reject. Accept happens via the existing
-// edit/new form with `?from_suggestion=<id>` in a later slice (ADR-0002).
+// Default view shows pending only. `?show=rejected` widens the filter to
+// pending + rejected so the admin can audit past decisions (issue #8).
+// Accepted Suggestions deliberately stay out — they're already reflected in
+// live data; the queue's job is the pending → decided transition.
 
 import { Suspense } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/BackLink";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +24,9 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function SuggestionsPage() {
+type SearchParams = { show?: string };
+
+export default function SuggestionsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-6 sm:py-8">
       <header className="flex flex-col gap-3">
@@ -34,11 +39,11 @@ export default function SuggestionsPage() {
         </h1>
         <p className="text-muted-foreground text-sm">
           Pending tips and corrections from anonymous readers. Accept by opening the pre-filled edit
-          form (later slice); reject to dismiss.
+          form; reject to dismiss. Toggle &ldquo;Show rejected&rdquo; to audit past decisions.
         </p>
       </header>
       <Suspense fallback={<Skeleton className="h-[280px] w-full rounded-2xl" />}>
-        <Queue />
+        <Queue searchParams={searchParams} />
       </Suspense>
     </div>
   );
@@ -54,13 +59,21 @@ function formatRelativeFromNow(iso: string): string {
   return `${Math.round(diffSec / 86_400)}d ago`;
 }
 
-async function Queue() {
+async function Queue({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const showRejected = params.show === "rejected";
+
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const query = supabase
     .from("suggestions")
-    .select("id, kind, target_restaurant_id, submitter_name, anything_else, created_at, payload")
-    .eq("status", "pending")
+    .select(
+      "id, kind, status, target_restaurant_id, submitter_name, anything_else, created_at, decided_at, admin_note, payload",
+    )
     .order("created_at", { ascending: false });
+
+  const { data, error } = await (showRejected
+    ? query.in("status", ["pending", "rejected"])
+    : query.eq("status", "pending"));
 
   if (error) {
     return (
@@ -71,13 +84,6 @@ async function Queue() {
   }
 
   const rows = data ?? [];
-  if (rows.length === 0) {
-    return (
-      <div className="border-border/60 text-muted-foreground rounded-2xl border border-dashed p-8 text-center text-sm">
-        Nothing pending. The queue is empty.
-      </div>
-    );
-  }
 
   // Resolve target restaurants in one batched read. We need the full live shape
   // for diffCorrection (not just name/slug), so the select widens accordingly.
@@ -112,72 +118,140 @@ async function Queue() {
   }
 
   return (
-    <ul className="flex flex-col gap-3">
-      {rows.map((s) => {
-        const target = s.target_restaurant_id ? targetsById.get(s.target_restaurant_id) : null;
-        const chips =
-          s.kind === "correction" && target
-            ? diffCorrection(target, (s.payload ?? {}) as CorrectionPayload).map(formatDiffChip)
-            : [];
-        return (
-          <li
-            key={s.id}
-            className="bg-card ring-foreground/10 hover:ring-foreground/20 flex flex-col gap-3 rounded-2xl p-5 ring-1 sm:flex-row sm:items-start sm:justify-between"
-          >
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-mono text-[10px] tracking-wide uppercase">
-                  {s.kind}
-                </span>
-                <span>by {s.submitter_name}</span>
-                <span aria-hidden>·</span>
-                <span className="font-mono tabular-nums">
-                  {formatRelativeFromNow(s.created_at)}
-                </span>
-              </div>
-              <p className="text-base font-medium">
-                {s.kind === "tip"
-                  ? "New restaurant tip"
-                  : target
-                    ? `Correction for ${target.name}`
-                    : "Correction (target missing)"}
-              </p>
-              {chips.length > 0 ? (
-                <ul className="mt-0.5 flex flex-wrap gap-1.5">
-                  {chips.map((c) => (
-                    <li
-                      key={c.label}
-                      className="bg-muted/60 text-muted-foreground ring-foreground/10 inline-flex items-baseline gap-1.5 rounded-full px-2.5 py-0.5 text-xs ring-1"
-                    >
-                      <span className="font-mono text-[10px] tracking-wide uppercase">
-                        {c.label}
+    <div className="flex flex-col gap-4">
+      <FilterToggle showRejected={showRejected} />
+      {rows.length === 0 ? (
+        <div className="border-border/60 text-muted-foreground rounded-2xl border border-dashed p-8 text-center text-sm">
+          {showRejected ? "No pending or rejected items." : "Nothing pending. The queue is empty."}
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {rows.map((s) => {
+            const target = s.target_restaurant_id ? targetsById.get(s.target_restaurant_id) : null;
+            const chips =
+              s.kind === "correction" && target
+                ? diffCorrection(target, (s.payload ?? {}) as CorrectionPayload).map(formatDiffChip)
+                : [];
+            const isRejected = s.status === "rejected";
+            return (
+              <li
+                key={s.id}
+                className={cn(
+                  "bg-card ring-foreground/10 hover:ring-foreground/20 flex flex-col gap-3 rounded-2xl p-5 ring-1 sm:flex-row sm:items-start sm:justify-between",
+                  isRejected && "opacity-60",
+                )}
+              >
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                    <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-mono text-[10px] tracking-wide uppercase">
+                      {s.kind}
+                    </span>
+                    {isRejected ? (
+                      <span className="bg-muted text-muted-foreground/70 rounded-full px-2 py-0.5 font-mono text-[10px] tracking-wide uppercase">
+                        rejected
                       </span>
-                      <span className="text-foreground/90">{c.detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : s.kind === "correction" && !s.anything_else ? (
-                <p className="text-muted-foreground text-xs italic">
-                  No field changes — anything-else only.
-                </p>
-              ) : null}
-              {s.anything_else ? (
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  &ldquo;{s.anything_else}&rdquo;
-                </p>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {s.kind === "tip" ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/new?from_suggestion=${s.id}`}>Open</Link>
-                </Button>
-              ) : null}
-              <RejectSuggestionButton id={s.id} />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+                    ) : null}
+                    <span>by {s.submitter_name}</span>
+                    <span aria-hidden>·</span>
+                    <span className="font-mono tabular-nums">
+                      {formatRelativeFromNow(s.created_at)}
+                    </span>
+                    {isRejected && s.decided_at ? (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span className="font-mono tabular-nums">
+                          decided {formatRelativeFromNow(s.decided_at)}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                  <p className="text-base font-medium">
+                    {s.kind === "tip"
+                      ? "New restaurant tip"
+                      : target
+                        ? `Correction for ${target.name}`
+                        : "Correction (target missing)"}
+                  </p>
+                  {chips.length > 0 ? (
+                    <ul className="mt-0.5 flex flex-wrap gap-1.5">
+                      {chips.map((c) => (
+                        <li
+                          key={c.label}
+                          className="bg-muted/60 text-muted-foreground ring-foreground/10 inline-flex items-baseline gap-1.5 rounded-full px-2.5 py-0.5 text-xs ring-1"
+                        >
+                          <span className="font-mono text-[10px] tracking-wide uppercase">
+                            {c.label}
+                          </span>
+                          <span className="text-foreground/90">{c.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : s.kind === "correction" && !s.anything_else ? (
+                    <p className="text-muted-foreground text-xs italic">
+                      No field changes — anything-else only.
+                    </p>
+                  ) : null}
+                  {s.anything_else ? (
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      &ldquo;{s.anything_else}&rdquo;
+                    </p>
+                  ) : null}
+                  {isRejected && s.admin_note ? (
+                    <p className="text-muted-foreground/80 text-xs italic">
+                      reason: {s.admin_note}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!isRejected && s.kind === "tip" ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/new?from_suggestion=${s.id}`}>Open</Link>
+                    </Button>
+                  ) : null}
+                  {!isRejected ? <RejectSuggestionButton id={s.id} /> : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function FilterToggle({ showRejected }: { showRejected: boolean }) {
+  return (
+    <nav className="flex items-center gap-1 text-xs" aria-label="Queue filter">
+      <FilterChip href="/suggestions" active={!showRejected}>
+        Pending only
+      </FilterChip>
+      <FilterChip href="/suggestions?show=rejected" active={showRejected}>
+        Show rejected
+      </FilterChip>
+    </nav>
+  );
+}
+
+function FilterChip({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "ring-foreground/10 hover:ring-foreground/20 rounded-full px-3 py-1 ring-1 transition-colors",
+        active
+          ? "bg-foreground text-background ring-foreground/30"
+          : "bg-card text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </Link>
   );
 }

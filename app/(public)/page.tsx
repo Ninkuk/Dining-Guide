@@ -44,6 +44,14 @@ async function RestaurantsSection() {
     <>
       <EditorialHeader visited={counts.visited} cities={counts.cities} cuisines={counts.cuisines} />
       <RestaurantList restaurants={restaurants} points={points} />
+      <p className="text-muted-foreground border-border/60 mt-4 border-t pt-6 text-center text-sm">
+        spot a missing place?{" "}
+        <Link href="/suggest" className="hover:text-foreground underline-offset-4 hover:underline">
+          send a tip
+        </Link>
+        . — spot an error? tap the restaurant and{" "}
+        <span className="text-muted-foreground/80">suggest an edit</span>.
+      </p>
     </>
   );
 }

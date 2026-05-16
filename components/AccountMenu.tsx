@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, CircleUser, LogIn, LogOut, Monitor, Moon, Plus, Sun } from "lucide-react";
+import {
+  BarChart3,
+  CircleUser,
+  Inbox,
+  LogIn,
+  LogOut,
+  Monitor,
+  Moon,
+  Plus,
+  Sun,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +23,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type AccountMenuProps = { signedIn: boolean };
+type AccountMenuProps = {
+  signedIn: boolean;
+  /**
+   * Pending Suggestions count for the badge. Pass `null` for signed-out users
+   * (the item is hidden in that case) or when the count query failed.
+   */
+  pendingCount: number | null;
+};
 
-export function AccountMenu({ signedIn }: AccountMenuProps) {
+export function AccountMenu({ signedIn, pendingCount }: AccountMenuProps) {
   const { setTheme } = useTheme();
 
   return (
@@ -37,6 +54,21 @@ export function AccountMenu({ signedIn }: AccountMenuProps) {
             <Link href="/new">
               <Plus />
               Add restaurant
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {signedIn ? (
+          <DropdownMenuItem asChild>
+            <Link href="/suggestions" className="flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2">
+                <Inbox />
+                Review suggestions
+              </span>
+              {pendingCount && pendingCount > 0 ? (
+                <span className="text-muted-foreground font-mono text-xs tabular-nums">
+                  {pendingCount}
+                </span>
+              ) : null}
             </Link>
           </DropdownMenuItem>
         ) : null}
