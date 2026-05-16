@@ -289,12 +289,14 @@ The Map view is a tab on the list page (`?view=cards|table|map` synced via `nuqs
 | `NEXT_PUBLIC_SUPABASE_URL`             | ✓                   | ✓                 | ✓              | ✓                  |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | ✓                   | ✓                 | ✓              | ✓                  |
 | `SUPABASE_SERVICE_ROLE_KEY`            | ✓ (script use only) | —                 | —              | —                  |
+| `CRON_SECRET`                          | ✓                   | ✓                 | ✓              | ✓                  |
 
 **Notes vs. the original spec:**
 
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` is now `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase's renamed key).
 - `ADMIN_PASSWORD` and `SESSION_SECRET` removed — replaced by Supabase Auth.
 - The geocoder no longer needs a contact email — Photon has no User-Agent requirement.
+- `CRON_SECRET` is the shared secret Vercel includes in the `Authorization: Bearer …` header when invoking the daily auto-expiry cron (`/api/cron/expire-suggestions`). The route fails closed when the env var is missing.
 
 ## Data Migration
 
