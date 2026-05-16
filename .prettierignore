@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+build
+coverage
+.vercel
+.playwright-mcp
+next-env.d.ts
+*.tsbuildinfo
+package-lock.json
+public
+supabase/.branches
+supabase/.temp
+scripts/data
+scripts/migration-failures.json
+components/ui

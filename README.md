@@ -26,15 +26,20 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Scripts
 
-| Command            | What it does                          |
-| ------------------ | ------------------------------------- |
-| `npm run dev`      | Start the Next.js dev server          |
-| `npm run build`    | Production build                      |
-| `npm run start`    | Serve the production build            |
-| `npm run lint`     | ESLint                                |
-| `npm test`         | Vitest (single run)                   |
-| `npm run test:watch` | Vitest watch mode                   |
-| `npm run test:ui`  | Vitest UI                             |
+| Command                | What it does                                                 |
+| ---------------------- | ------------------------------------------------------------ |
+| `npm run dev`          | Start the Next.js dev server                                 |
+| `npm run build`        | Production build                                             |
+| `npm run start`        | Serve the production build                                   |
+| `npm run lint`         | ESLint (Next config + type-aware `@typescript-eslint` rules) |
+| `npm run lint:fix`     | ESLint with `--fix`                                          |
+| `npm run format`       | Prettier write across the repo                               |
+| `npm run format:check` | Prettier check (no writes) — what CI runs                    |
+| `npm run typecheck`    | `tsc --noEmit`                                               |
+| `npm run preflight`    | Auto-fix + verify everything CI checks — run before commit   |
+| `npm test`             | Vitest (single run)                                          |
+| `npm run test:watch`   | Vitest watch mode                                            |
+| `npm run test:ui`      | Vitest UI                                                    |
 
 One-off CSV importer (was used to seed from the legacy spreadsheet — kept for reference):
 
@@ -42,14 +47,29 @@ One-off CSV importer (was used to seed from the legacy spreadsheet — kept for 
 npx tsx scripts/migrate-csv.ts --clean
 ```
 
+## Code quality
+
+Three layers of enforcement, fastest to slowest:
+
+1. **Pre-commit hook** (`.husky/pre-commit`, via [husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged)) — runs Prettier + ESLint `--fix` on staged files only, then a full `tsc --noEmit`. Sub-second on small commits.
+2. **Preflight** (`scripts/preflight.sh`, aliased as `npm run preflight`) — auto-fixes formatting and lint across the whole repo, then verifies typecheck and tests. Run this when you want a clean slate.
+3. **CI** (`.github/workflows/ci.yml`) — read-only mirror of preflight (`format:check`, `lint`, `typecheck`, `test`) on every push to `master` and every PR.
+
+Config:
+
+- **Prettier** — `.prettierrc.json`: 100-col, double-quote, `endOfLine: lf`, `prettier-plugin-tailwindcss` for class sorting.
+- **ESLint** — `eslint.config.mjs`: `eslint-config-next` + cherry-picked type-aware rules. `no-floating-promises` is an error; `no-misused-promises` is a warning (async handlers on `onClick`/`onSelect` are idiomatic but technically unsafe — visible without blocking).
+- **Knip** — `knip.json`: ignores shadcn UI primitives and the generated Supabase types file. Run `npx knip` periodically for an unused-code audit (not on every commit).
+- **Editor / git layer** — `.editorconfig`, `.gitattributes` (LF normalization at the git layer), and `.nvmrc` (pins Node version, also read by Vercel and CI).
+
 ## Environment
 
 Three variables. The spec's [Environment Variables table](docs/dining-guide-spec.md#environment-variables) is the source of truth; in summary:
 
-| Var                                    | Where                          |
-| -------------------------------------- | ------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`             | Local + all Vercel envs        |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Local + all Vercel envs        |
+| Var                                    | Where                                      |
+| -------------------------------------- | ------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Local + all Vercel envs                    |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Local + all Vercel envs                    |
 | `SUPABASE_SERVICE_ROLE_KEY`            | Local only — script use, never in app code |
 
 (Geocoding uses [Photon](https://photon.komoot.io), which needs no API key — no env var.)
