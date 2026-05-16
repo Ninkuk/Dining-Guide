@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm, useFormContext, FormProvider, Controller } from "react-hook-form";
+import { getPreviousPath } from "@/lib/app-navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -82,6 +84,7 @@ export function RestaurantForm({
   defaultValues: RestaurantInput;
   cuisineOptions: CuisineOption[];
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [deletePending, setDeletePending] = useState(false);
 
@@ -145,7 +148,21 @@ export function RestaurantForm({
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="flex flex-col gap-8">
+      <form
+        onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+        // No implicit submit on Enter — this form is long and editorial; users save
+        // from the sticky save bar. Enter mid-edit on a text input would otherwise
+        // submit silently with whatever's typed so far.
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          const target = e.target as HTMLElement;
+          if (target.tagName !== "INPUT") return;
+          const type = (target as HTMLInputElement).type;
+          if (type === "submit" || type === "button" || type === "reset") return;
+          e.preventDefault();
+        }}
+        className="flex flex-col gap-8"
+      >
         <input type="hidden" {...register("slug")} />
 
         {/* — The basics — */}
@@ -401,7 +418,17 @@ export function RestaurantForm({
             </span>
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost">
-                <Link href={cancelHref}>Cancel</Link>
+                <Link
+                  href={cancelHref}
+                  onNavigate={(e) => {
+                    if (getPreviousPath() === cancelHref) {
+                      e.preventDefault();
+                      router.back();
+                    }
+                  }}
+                >
+                  Cancel
+                </Link>
               </Button>
               <Button type="submit" disabled={pending}>
                 {pending ? "Saving…" : mode === "create" ? "Create" : "Save changes"}
