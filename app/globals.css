@@ -42,6 +42,12 @@
   color: var(--foreground);
 }
 
+/* Seal Leaflet's z-index ladder (controls reach 1000) inside its own stacking
+   context, so map chrome can't paint above page-level UI like dialogs. */
+.leaflet-container {
+  isolation: isolate;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
