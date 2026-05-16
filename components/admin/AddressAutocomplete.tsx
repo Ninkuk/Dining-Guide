@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Loader2, RefreshCcw, Search } from "lucide-react";
+import { useRef, useState } from "react";
 
 export type AddressPick = {
   display_name: string;
@@ -20,8 +21,6 @@ type GeocodeRow = {
   longitude: number;
   city: string | null;
 };
-
-const DEBOUNCE_MS = 300;
 
 // Default search box: roughly the state of Arizona. `/api/geocode` searches
 // inside the box first and only falls back to an unrestricted search if that
@@ -52,7 +51,6 @@ export function AddressAutocomplete({
   const [error, setError] = useState<string | null>(null);
   const [viewbox, setViewbox] = useState<string>(ARIZONA_VIEWBOX);
   const abortRef = useRef<AbortController | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const askedLocation = useRef(false);
 
   // Mirror the `value` prop when the parent resets it externally.
@@ -61,10 +59,9 @@ export function AddressAutocomplete({
   if (prevValue !== value) {
     setPrevValue(value);
     setQuery(value ?? "");
+    setResults([]);
+    setOpen(false);
   }
-
-  // Derive what to render — keeps the effect free of synchronous setState.
-  const visibleResults = query.trim().length < 3 ? [] : results;
 
   function requestLocationOnce() {
     if (askedLocation.current) return;
@@ -79,38 +76,33 @@ export function AddressAutocomplete({
     );
   }
 
-  useEffect(() => {
-    if (query.trim().length < 3) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      void (async () => {
-        abortRef.current?.abort();
-        const ac = new AbortController();
-        abortRef.current = ac;
-        setLoading(true);
-        setError(null);
-        try {
-          const res = await fetch(
-            `/api/geocode?q=${encodeURIComponent(query.trim())}&viewbox=${encodeURIComponent(viewbox)}`,
-            { signal: ac.signal },
-          );
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = (await res.json()) as GeocodeRow[];
-          setResults(data);
-        } catch (err) {
-          if ((err as Error).name === "AbortError") return;
-          setError("Couldn't load suggestions");
-          setResults([]);
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }, DEBOUNCE_MS);
+  async function runSearch() {
+    const q = query.trim();
+    if (q.length < 3) return;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setLoading(true);
+    setError(null);
+    setOpen(true);
+    try {
+      const res = await fetch(
+        `/api/geocode?q=${encodeURIComponent(q)}&viewbox=${encodeURIComponent(viewbox)}`,
+        { signal: ac.signal },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as GeocodeRow[];
+      setResults(data);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setError("Couldn't load suggestions");
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [query, viewbox]);
+  const canSearch = query.trim().length >= 3;
 
   return (
     <div className="relative">
@@ -121,27 +113,45 @@ export function AddressAutocomplete({
           placeholder={placeholder}
           onChange={(e) => {
             setQuery(e.target.value);
-            setOpen(true);
+            // Results belong to the previous query — drop them until the user searches again.
+            setResults([]);
+            setError(null);
+            setOpen(false);
             if (e.target.value.trim().length === 0) onPick(null);
           }}
-          onFocus={() => {
-            setOpen(true);
-            requestLocationOnce();
+          onFocus={requestLocationOnce}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void runSearch();
+            }
           }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          className="pl-9"
+          className="pr-10 pl-9"
         />
-        {loading ? (
-          <Loader2 className="text-muted-foreground absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin" />
-        ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Search"
+          disabled={!canSearch || loading}
+          onMouseDown={(e) => {
+            // Keep the input's blur-close from beating our click.
+            e.preventDefault();
+          }}
+          onClick={() => void runSearch()}
+          className="absolute top-1/2 right-1 -translate-y-1/2"
+        >
+          {loading ? <Loader2 className="animate-spin" /> : <RefreshCcw />}
+        </Button>
       </div>
-      {open && (visibleResults.length > 0 || error) ? (
+      {open && (results.length > 0 || error) ? (
         <div className="bg-popover absolute z-50 mt-1 w-full overflow-hidden rounded-md border shadow-md">
           {error ? (
             <div className="text-destructive px-3 py-2 text-xs">{error}</div>
           ) : (
             <ul role="listbox" className="max-h-72 overflow-y-auto">
-              {visibleResults.map((r, i) => (
+              {results.map((r, i) => (
                 <li
                   key={i}
                   role="option"
