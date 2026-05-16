@@ -1,0 +1,15 @@
+# Normalize all text files to LF on checkin/checkout.
+# Pairs with .prettierrc "endOfLine": "lf" so contributors on Windows
+# don't accidentally introduce CRLF into the repo.
+* text=auto eol=lf
+
+# Treat known binary types so git doesn't try to diff or normalize them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
