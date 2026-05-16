@@ -72,7 +72,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <NuqsAdapter>
-            <NavigationTracker />
+            <Suspense fallback={null}>
+              <NavigationTracker />
+            </Suspense>
             <main className="relative flex flex-1 flex-col">
               <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end px-4 pt-4">
                 <div className="pointer-events-auto">
