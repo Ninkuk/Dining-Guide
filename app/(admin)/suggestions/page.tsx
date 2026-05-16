@@ -10,6 +10,9 @@ import { BackLink } from "@/components/BackLink";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RejectSuggestionButton } from "@/components/admin/RejectSuggestionButton";
 import { createClient } from "@/lib/supabase/server";
+import { diffCorrection, type LiveRestaurant } from "@/lib/suggestions/merge";
+import { formatDiffChip } from "@/lib/suggestions/diff-chips";
+import type { CorrectionPayload } from "@/lib/suggestions/schema";
 
 export const metadata = {
   title: "Suggestions queue",
@@ -53,7 +56,7 @@ async function Queue() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("suggestions")
-    .select("id, kind, target_restaurant_id, submitter_name, anything_else, created_at")
+    .select("id, kind, target_restaurant_id, submitter_name, anything_else, created_at, payload")
     .eq("status", "pending")
     .order("created_at", { ascending: false });
 
@@ -74,21 +77,46 @@ async function Queue() {
     );
   }
 
-  // Resolve target restaurant names for Corrections in one batched read.
+  // Resolve target restaurants in one batched read. We need the full live shape
+  // for diffCorrection (not just name/slug), so the select widens accordingly.
   const targetIds = rows.map((r) => r.target_restaurant_id).filter((v): v is number => v != null);
-  const targetsById = new Map<number, { name: string; slug: string }>();
+  const targetsById = new Map<number, LiveRestaurant & { name: string; slug: string }>();
   if (targetIds.length > 0) {
     const { data: targets } = await supabase
       .from("restaurants")
-      .select("id, name, slug")
+      .select(
+        "id, slug, name, cuisine, vegetarian, permanently_closed, photo_url, locations(id, city, locality, address, latitude, longitude)",
+      )
       .in("id", targetIds);
-    for (const t of targets ?? []) targetsById.set(t.id, { name: t.name, slug: t.slug });
+    for (const t of targets ?? []) {
+      targetsById.set(t.id, {
+        id: t.id,
+        slug: t.slug,
+        name: t.name,
+        cuisine: t.cuisine ?? [],
+        vegetarian: t.vegetarian,
+        permanently_closed: t.permanently_closed,
+        photo_url: t.photo_url,
+        locations: (t.locations ?? []).map((l) => ({
+          id: l.id,
+          city: l.city,
+          locality: l.locality,
+          address: l.address,
+          latitude: l.latitude,
+          longitude: l.longitude,
+        })),
+      });
+    }
   }
 
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((s) => {
         const target = s.target_restaurant_id ? targetsById.get(s.target_restaurant_id) : null;
+        const chips =
+          s.kind === "correction" && target
+            ? diffCorrection(target, (s.payload ?? {}) as CorrectionPayload).map(formatDiffChip)
+            : [];
         return (
           <li
             key={s.id}
@@ -112,6 +140,25 @@ async function Queue() {
                     ? `Correction for ${target.name}`
                     : "Correction (target missing)"}
               </p>
+              {chips.length > 0 ? (
+                <ul className="mt-0.5 flex flex-wrap gap-1.5">
+                  {chips.map((c) => (
+                    <li
+                      key={c.label}
+                      className="bg-muted/60 text-muted-foreground ring-foreground/10 inline-flex items-baseline gap-1.5 rounded-full px-2.5 py-0.5 text-xs ring-1"
+                    >
+                      <span className="font-mono text-[10px] tracking-wide uppercase">
+                        {c.label}
+                      </span>
+                      <span className="text-foreground/90">{c.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : s.kind === "correction" && !s.anything_else ? (
+                <p className="text-muted-foreground text-xs italic">
+                  No field changes — anything-else only.
+                </p>
+              ) : null}
               {s.anything_else ? (
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   &ldquo;{s.anything_else}&rdquo;

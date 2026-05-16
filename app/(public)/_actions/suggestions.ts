@@ -42,6 +42,21 @@ export async function submitSuggestion(input: unknown): Promise<SubmitResult> {
   }
 
   const supabase = await createClient();
+
+  // For Corrections, snapshot the target restaurant's updated_at at submit
+  // time. ADR-0003 uses this for the queue's "Base updated since submit"
+  // warning. If the lookup fails we still insert; base_updated_at just stays
+  // null and the admin doesn't see a stale-base warning for this one.
+  let baseUpdatedAt: string | null = null;
+  if (guarded.parsed.kind === "correction") {
+    const { data: target } = await supabase
+      .from("restaurants")
+      .select("updated_at")
+      .eq("id", guarded.parsed.target_restaurant_id)
+      .maybeSingle();
+    baseUpdatedAt = target?.updated_at ?? null;
+  }
+
   const { error } = await supabase.from("suggestions").insert({
     kind: guarded.parsed.kind,
     target_restaurant_id: guarded.parsed.target_restaurant_id ?? null,
@@ -49,6 +64,7 @@ export async function submitSuggestion(input: unknown): Promise<SubmitResult> {
     payload: guarded.parsed.payload as never,
     anything_else: guarded.parsed.anything_else ?? null,
     photo_path: guarded.parsed.photo_path ?? null,
+    base_updated_at: baseUpdatedAt,
   });
 
   if (error) {
