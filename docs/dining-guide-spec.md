@@ -11,7 +11,7 @@ A personal CRUD web app to replace a Google Sheet of restaurants I've visited an
 - **Auth:** Supabase Auth, email + password for a single admin user
 - **Hosting:** Vercel (Hobby tier)
 - **Map:** `react-leaflet` v5 + Leaflet 1.x + OpenStreetMap tiles (no API key)
-- **Geocoding:** Nominatim (free; called from a server-side proxy at write time only; respects 1 req/sec)
+- **Geocoding:** Photon (komoot, free, no API key, no User-Agent required; called from a server-side proxy at write time only; client-side autocomplete debounced 300ms, server-side queue ≥250ms between calls)
 - **Styling:** Tailwind CSS v4 + shadcn/ui (style: `radix-maia`, icons: `hugeicons`)
 - **Forms:** React Hook Form + Zod, via shadcn's `<Form>` components
 - **URL state:** `nuqs` for filter/sort/search synced to query params
@@ -41,8 +41,7 @@ create table restaurants (
   wallet      text check (wallet in ('Cheap','Normal','Splurge','Big night')),
   rating      smallint check (rating between 1 and 5),
   vegetarian  text check (vegetarian in ('yes','no')),
-  halal       text check (halal in ('yes','no')),
-  is_chain    boolean not null default false,
+  permanently_closed boolean not null default false,
   status      text not null default 'visited'
               check (status in ('visited','want_to_try')),
   visited_at  date,
@@ -66,7 +65,7 @@ create table locations (
   restaurant_id bigint not null references restaurants(id) on delete cascade,
   city          text,
   locality      text,
-  address       text,        -- Nominatim display_name, populated on autocomplete pick
+  address       text,        -- Photon-composed display label, populated on autocomplete pick
   latitude      double precision check (latitude between -90 and 90),
   longitude     double precision check (longitude between -180 and 180),
   created_at    timestamptz not null default now(),
@@ -75,7 +74,6 @@ create table locations (
 
 create index on locations(restaurant_id);
 create index on restaurants(status);
-create index on restaurants(is_chain) where is_chain;
 
 -- updated_at auto-update trigger (applied to both tables)
 create or replace function set_updated_at() returns trigger language plpgsql as $$
@@ -107,11 +105,12 @@ create trigger restaurants_check_cuisines
 
 **Model rules:**
 
-- One row per restaurant. A chain (e.g., Chick-fil-A) is **one** restaurant with **many** locations. The `is_chain` boolean (Decision 28) preserves the explicit "this is a chain" classification from the source sheet and enables a future "hide chains" filter; it is independent of the location count (a chain you've never been to a specific branch of has 0 locations).
+- One row per restaurant. A chain (e.g., Chick-fil-A) is **one** restaurant with **many** locations. A chain you've never been to a specific branch of just has 0 locations.
 - Ratings and notes live at the restaurant level, not per location.
 - `cuisine` is an array of canonical strings. **Emojis are NOT stored on `restaurants`** — the `cuisines` lookup table holds them per-row (Decision 26). The integrity trigger rejects writes to `restaurants.cuisine[]` containing values not present in `cuisines.name`.
 - `lib/cuisines.ts` ships the seed list and a fallback emoji helper; once the migration runs, the DB is canonical and the form's Combobox queries `cuisines` directly.
-- `vegetarian` and `halal` are 3-state fields encoded as 2 + NULL: `'yes'`, `'no'`, or `NULL` ("unknown"). There is no `'not_sure'` literal (Decision 31a) — NULL means the same thing.
+- `vegetarian` is a 3-state field encoded as 2 + NULL: `'yes'`, `'no'`, or `NULL` ("unknown"). There is no `'not_sure'` literal (Decision 31a) — NULL means the same thing.
+- `permanently_closed` is a boolean. A place you visited can later close, so it's orthogonal to `status` (a single status value can't carry both "visited" and "now closed").
 - `occasion` is a personal-context vibe tag: `Quick` (counter service), `Casual` (sit-down), `Elevated` (nice but informal), `Fine Dine` (special occasion). Single-valued, nullable (Decision 30).
 - `wallet` is a personal-relative spend tier: `Cheap`, `Normal`, `Splurge`, `Big night`. Inflation-proof by construction — anchors are _your_ habits, not absolute dollars (Decision 30). Independent of `occasion`: the gap between vibe and wallet is the interesting signal (Elevated + Normal = rare gem; Casual + Splurge = trap).
 - `rating` is `1..5` smallint, nullable. NULL = unrated (Decision 31b). The migration sets NULL for `☆☆☆☆☆` (zero filled stars) — these are visited-but-the-user-hadn't-rated-yet, not wishlist (Decision 24).
@@ -120,7 +119,7 @@ create trigger restaurants_check_cuisines
 - `slug` is auto-generated from `name` (kebab-case via manual unicode-normalizing regex, no `slugify` dep) but editable. Forbidden values: `map`, `stats`, `new`, `api`, `auth` — enforced both in `lib/slug.ts` and as a Postgres CHECK constraint (kept in sync; comment on each pointing at the other).
 - Slug uniqueness collision: handled inside the upsert RPC by appending `-2`, `-3`, ... in a retry loop (single round-trip, no race).
 - Slug edits do NOT redirect from old slug — accept 404s. Single user, you control bookmarks.
-- `locations.address` stores the full formatted address from Nominatim's `display_name` (Decision 31c); populated only when the user picks an autocomplete suggestion. Migrated rows have `address = NULL` and display city/locality only.
+- `locations.address` stores the full formatted address composed from Photon's structured properties (Decision 31c); populated only when the user picks an autocomplete suggestion. Migrated rows have `address = NULL` and display city/locality only.
 - `locations.locality` is descriptive free text (Decision 29) — `"Apache Blvd"`, `"close to friend X's house"`, both valid. Not normalized; not split on commas during migration.
 
 ### Atomicity
@@ -142,17 +141,16 @@ Server actions call `supabase.rpc('upsert_restaurant_with_locations', { payload 
 
 ## Routes
 
-| Path           | Purpose                                                               | Access                |
-| -------------- | --------------------------------------------------------------------- | --------------------- |
-| `/`            | List view with filters, search, sort                                  | Public read           |
-| `/map`         | Global map of all locations                                           | Public read           |
-| `/stats`       | Aggregate analytics                                                   | Public read           |
-| `/[slug]`      | Restaurant detail + mini-map of its locations                         | Public read           |
-| `/new`         | Create restaurant                                                     | Auth-required (admin) |
-| `/[slug]/edit` | Edit restaurant + its locations                                       | Auth-required (admin) |
-| `/auth/login`  | Email + password sign-in form                                         | —                     |
-| `/auth/logout` | `signOut` then redirect                                               | —                     |
-| `/api/geocode` | Nominatim proxy (search + reverse), with 1.1s queue and Runtime Cache | —                     |
+| Path           | Purpose                                                              | Access                |
+| -------------- | -------------------------------------------------------------------- | --------------------- |
+| `/`            | List view with filters, search, sort, plus `?view=cards\|table\|map` | Public read           |
+| `/stats`       | Aggregate analytics                                                  | Public read           |
+| `/[slug]`      | Restaurant detail + mini-map of its locations                        | Public read           |
+| `/new`         | Create restaurant                                                    | Auth-required (admin) |
+| `/[slug]/edit` | Edit restaurant + its locations                                      | Auth-required (admin) |
+| `/auth/login`  | Email + password sign-in form                                        | —                     |
+| `/auth/logout` | `signOut` then redirect                                              | —                     |
+| `/api/geocode` | Photon proxy with per-instance queue and an in-memory response cache | —                     |
 
 Note: paths use `/auth/*` (not the spec's original `/login`) to match the existing `@supabase/ssr` scaffolding.
 
@@ -218,7 +216,7 @@ Previews are read-only "look at the change" deploys.
 
 - Server Component fetches **all** restaurants once via `getAllRestaurants()` (cached); passes the array to a `<RestaurantList>` client island.
 - Client island holds filter / sort / search state in `useState` + URL-synced via **nuqs** (multi-select arrays via `useQueryState('cuisine', { parse: parseAsArrayOf(parseAsString) })`).
-- **Filter logic:** AND across categories, OR within a category. Filters: cuisine, city, rating, occasion, wallet, vegetarian, halal, status, plus a "Hide chains" toggle backed by `is_chain`.
+- **Filter logic:** AND across categories, OR within a category. Filters: cuisine, city, rating, occasion, wallet, vegetarian, status.
 - **Search:** case-insensitive substring on `name`. URL update debounced 300ms; in-memory filter immediate.
 - **Sort:** name | rating desc | recently added (uses `created_at`) | recently visited (uses `visited_at desc nulls last`).
 - **Layout:** responsive card grid — 1 col mobile, 2 cols `sm`, 3 cols `lg`. Each card shows: photo thumbnail (when `photo_url` is set; otherwise a tinted block in a cuisine-derived hue with the cuisine emoji), name, star rating, cuisine badges (emoji joined from the `cuisines` table), city pill, wallet pill (only when set), and a filled/outlined status indicator.
@@ -228,16 +226,19 @@ Previews are read-only "look at the change" deploys.
 
 ### Detail view (`/[slug]`)
 
-- Full record: cuisine (with emojis from `cuisines` table), occasion, wallet, rating, vegetarian, halal, visited date, notes, pros, cons, recommendations. Photo (when present) renders as a hero image at the top.
+- Full record: cuisine (with emojis from `cuisines` table), occasion, wallet, rating, vegetarian, visited date, notes, pros, cons, recommendations. Photo (when present) renders as a hero image at the top.
 - All locations listed with city/locality/address (address shown when populated; otherwise just city + locality).
 - **Mini-map** showing the restaurant's pins. Uses `<RestaurantMap>` with `gestureHandling: true` (via `leaflet-gesture-handling` plugin) so vertical page scroll works on mobile — pan requires two fingers / cmd+scroll.
 - Mini-map zoom: single location → center on it at zoom 14; multiple → `fitBounds` with padding.
 - **Edit button** (auth-gated, dynamic Server Component sibling to the cached page body).
 
-### Map view (`/map`)
+### Map view (`?view=map` on `/`)
 
-- Full-bleed `<RestaurantMap>` with all locations as pins. `gestureHandling: false` here — single-finger pan is fine when the map is the whole page.
-- Pin popup: restaurant name, star count, link to `/[slug]`.
+The Map view is a tab on the list page (`?view=cards|table|map` synced via `nuqs`), not a standalone route. The map component (`RestaurantMap` / `RestaurantMapInner`) is shared with the `/[slug]` mini-map.
+
+- Split layout: on mobile, map on top (`h-[50vh]`) then list; on desktop, list left and sticky map right.
+- All geocoded locations rendered as pins. `gestureHandling: false` here — single-finger pan is fine on the dedicated tab.
+- Pin popup: a small `RestaurantCardCompact`-style bubble — see `docs/design-memory.md` for the `MarkerCard` contract.
 - Visited vs `want_to_try` distinction: **two custom `L.divIcon` SVG markers** — filled (visited) vs outlined (want_to_try). Using divIcons sidesteps Leaflet's bundler issue with `marker-icon.png` defaults.
 - OSM tile attribution rendered (`'© OpenStreetMap contributors'`) — required by OSM's terms.
 - **Empty state:** map centered on Phoenix/Tempe at zoom 10 with a small overlay card "No locations to show."
@@ -253,8 +254,8 @@ Previews are read-only "look at the change" deploys.
   - **Donut** (small) for the visited vs want_to_try split — pie's appropriate for a 2-slice ratio.
   - **Bar** for occasion distribution (Quick / Casual / Elevated / Fine Dine).
   - **Bar** for wallet distribution (Cheap / Normal / Splurge / Big night), with an `unset` bucket.
-  - **Stacked bar** for dietary marker mix (vegetarian + halal yes/no/unknown).
-  - **Stat cards** above the charts: "Visited: N" / "Want to try: N" / "Chains: N" / "Independents: N".
+  - **Stacked bar** for vegetarian mix (yes/no/unknown).
+  - **Stat cards** above the charts: "Visited: N" / "Want to try: N" / "Permanently closed: N" alongside the totals.
 - **Empty state:** if fewer than ~3 restaurants, hide charts and show "Add a few restaurants to see stats."
 - All charts use `npx shadcn add chart` (Recharts under the hood, themed by shadcn CSS vars).
 
@@ -266,34 +267,34 @@ Previews are read-only "look at the change" deploys.
 - **Delete:** shadcn `<AlertDialog>` modal — "Delete `Pizzeria Bianco`? This removes the restaurant and all 3 locations. Cannot be undone." `Cancel` / `Delete` (destructive variant). Posts to delete server action via a `<form>` inside the dialog.
 - **Cuisine input:** shadcn `<Combobox>` + `<Command>`. Options sourced from the `cuisines` table (cached, tagged `cuisines`). Typing an unknown value surfaces a "Create '<typed>'" command at the bottom of the dropdown — clicking opens a small dialog (Decision 26c) with two `<Input>`s: name (prefilled) + emoji (single character, defaults to 🍽️ if blank). Confirming inserts a row into `cuisines` and selects it. Display labels show `{emoji} {name}`; stored values are bare canonical names. Zod rejects values containing `\p{Extended_Pictographic}` in the name field (separate from the emoji field).
 - **Occasion / wallet inputs:** plain shadcn `<Select>` with the four CHECK-constrained values plus a "None" option for nullable.
-- **Vegetarian / halal inputs:** three radio buttons each (Yes / No / Unknown). "Unknown" stores NULL.
+- **Vegetarian input:** three radio buttons (Yes / No / Unknown). "Unknown" stores NULL.
 - **Star input:** custom 5-button `<StarRating>` built on `lucide-react` `Star` (filled / outlined). ~30 lines, no library dep. Value range 1–5; clicking the lit star clears to NULL.
 - **Visited-at input:** shadcn `<Calendar>` date picker; defaults to `current_date` for new restaurants, blank for migrated ones until edited.
 - **Photo upload:** file `<Input>` (accept `image/*`), client-side resize to ≤1200px wide via canvas (JPEG quality 0.8, ≤200KB target), upload to `restaurant-photos` bucket via `supabase.storage`, store the public URL in `photo_url`. Single photo per restaurant; replacing uploads a new file and deletes the old one in the same server action.
 
 ### Geocoding
 
-- **Server-side proxy at `/api/geocode`** wraps Nominatim's `/search` endpoint. Browser hits the proxy; the proxy adds the User-Agent header (`NOMINATIM_USER_AGENT` — server-only env var, no `NEXT_PUBLIC_` prefix) and calls Nominatim.
-- **Rate limit:** in-memory token-bucket / delay-queue inside the route handler enforces ≥1.1s between Nominatim calls per Vercel function instance. Combined with client-side 300ms debounce, you cannot outrun OSM's policy.
-- **Caching:** Vercel Runtime Cache wraps the Nominatim call, keyed by query string, TTL 7 days. Repeat queries (autocomplete partial overlaps; migration re-runs) become free.
-- **Autocomplete UX:** address input on the create/edit form is a debounced (300ms, ≥3 chars) combobox calling `/api/geocode`. User picks a result; the response's `lat`, `lon`, and `display_name` populate the location row's hidden fields (`latitude`, `longitude`, `address` per Decision 31c).
-- **Server-action safety net:** if a location row arrives at the server action with `latitude/longitude` already set (user picked from autocomplete), trust them. If null (user typed but didn't pick), the action calls `/api/geocode` itself once and fills them. Two paths, same proxy.
-- **Geocoding never happens at page-load time.** The `/map` view reads stored lat/lng only.
+- **Server-side proxy at `/api/geocode`** wraps the Photon (`https://photon.komoot.io/api/`) endpoint. Photon needs no API key and no User-Agent header. The proxy exists to (a) keep geocoding behind one server module and (b) cache responses.
+- **Rate limit:** an in-process queue in `lib/geocode.ts` enforces ≥250ms between Photon calls per Vercel function instance. Combined with the client-side 300ms debounce, this stays comfortably inside the public Photon instance's "reasonable use" expectation.
+- **Caching:** a module-level `Map` in `app/api/geocode/route.ts` caches responses by `q|viewbox` for 7 days. Fluid Compute reuses function instances, so the cache survives across invocations on the same instance. Swap in Vercel Runtime Cache if multi-region traffic ever warrants it.
+- **Autocomplete UX:** address input on the create/edit form is a debounced (300ms, ≥3 chars) combobox calling `/api/geocode`. User picks a result; the response's `latitude`, `longitude`, and `display_name` (composed by `formatPhotonLabel` from Photon's structured properties) populate the location row's hidden fields (`latitude`, `longitude`, `address` per Decision 31c).
+- **Bias toward the user:** the proxy first searches inside an Arizona viewbox (or, once the browser grants geolocation, a ~50km box around the user), then falls back to an unrestricted search biased toward the box's centre. So local places win, but a trip restaurant still resolves.
+- **Server-action safety net:** if a location row arrives at the server action with `latitude/longitude` already set (user picked from autocomplete), trust them. If null (user typed but didn't pick), the action calls `geocodeSearch` once and fills them.
+- **Geocoding never happens at page-load time.** The Map view reads stored lat/lng only.
 
 ## Environment Variables
 
-| Var                                    | Local `.env.local`                                      | Vercel Production | Vercel Preview | Vercel Development |
-| -------------------------------------- | ------------------------------------------------------- | ----------------- | -------------- | ------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`             | ✓                                                       | ✓                 | ✓              | ✓                  |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | ✓                                                       | ✓                 | ✓              | ✓                  |
-| `SUPABASE_SERVICE_ROLE_KEY`            | ✓ (script use only)                                     | —                 | —              | —                  |
-| `NOMINATIM_USER_AGENT`                 | ✓ (e.g. `dining-guide (contact: ninadk.dev@gmail.com)`) | ✓                 | ✓              | ✓                  |
+| Var                                    | Local `.env.local`  | Vercel Production | Vercel Preview | Vercel Development |
+| -------------------------------------- | ------------------- | ----------------- | -------------- | ------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`             | ✓                   | ✓                 | ✓              | ✓                  |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | ✓                   | ✓                 | ✓              | ✓                  |
+| `SUPABASE_SERVICE_ROLE_KEY`            | ✓ (script use only) | —                 | —              | —                  |
 
 **Notes vs. the original spec:**
 
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` is now `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase's renamed key).
 - `ADMIN_PASSWORD` and `SESSION_SECRET` removed — replaced by Supabase Auth.
-- `NEXT_PUBLIC_NOMINATIM_USER_AGENT` becomes server-only `NOMINATIM_USER_AGENT` since the geocoding proxy is server-side; your contact email no longer ships in the client bundle.
+- The geocoder no longer needs a contact email — Photon has no User-Agent requirement.
 
 ## Data Migration
 
@@ -318,15 +319,15 @@ The existing data is a CSV (`Dining_Guide_-_List.csv`) with columns: `Name, Cuis
 3. **De-duplicate by name** — same `Name` becomes **one restaurant with N locations**.
 4. **Cuisine seeding (Decision 26):** before inserting any restaurant, gather all distinct cuisines from the CSV (after stripping emojis with `value.replace(/\p{Extended_Pictographic}/gu, '').trim()`). Upsert each into the `cuisines` table — emoji defaults to the value in the seed table if it exists, else `🍽️`. Then insert restaurants normally. The integrity trigger now allows `cuisine[]` writes because every value exists in `cuisines.name`.
 5. **Cuisine canonicalization:** the source CSV uses `Burger` (singular) — that is the canonical form (Decision 26b). The seed list aligns.
-6. **Vegetarian mapping (Decision 31a):** `Yes` → `'yes'`, `No` → `'no'`, anything else (including `Not sure` and blank) → `NULL`. `halal` stays `NULL` for all migrated rows; you fill in over time.
+6. **Vegetarian mapping (Decision 31a):** `Yes` → `'yes'`, `No` → `'no'`, anything else (including `Not sure` and blank) → `NULL`.
 7. **Occasion mapping (Decision 30):** strip emoji, then map `Everyday → 'Quick'`, `Casual → 'Casual'`, `Nice-Casual → 'Elevated'`, `Upscale → 'Fine Dine'`. Blank stays NULL. `wallet` stays NULL on import.
-8. **Chain detection (Decision 28):** if any of the row's `City` or `Locality` cells (post-comma-split) contain the literal `Chain`, set `is_chain = true`. The "Chain" token itself is dropped from the city/locality values written to `locations`.
+8. **Chain handling (Decision 28):** rows whose `City` or `Locality` cells (post-comma-split) contain the literal `Chain` are treated as chains for migration purposes; the `Chain` token itself is dropped from the city/locality values written to `locations`. A chain you've never been to a specific branch of just imports with 0 locations.
 9. **Locations from City + Locality (Decision 29 — simplified):**
    - **City drives location count.** Strip the literal `Chain` token from city values; split the remainder on commas; trim. Each surviving city becomes one location row.
    - **Locality is freeform prose, never split.** It's preserved verbatim and shared across all locations the row produces (acceptable lossy duplication — the user can clean up post-import via the admin UI if a specific locality should only attach to one location).
-   - When the only city value was `Chain` (no other cities) AND `Locality` is non-empty, create **one** location with `city = NULL` and the locality verbatim — preserves the user's note. When both are empty, **zero** locations (`is_chain = true` with no specific branch known) — that's a valid state.
+   - When the only city value was `Chain` (no other cities) AND `Locality` is non-empty, create **one** location with `city = NULL` and the locality verbatim — preserves the user's note. When both are empty, **zero** locations — that's a valid state for a chain with no specific branch known.
 10. **Slug generation:** kebab-case via `lib/slug.ts`. Collision handled by the upsert RPC's retry loop (script uses the same RPC).
-11. **Geocoding:** for each location, build a query like `"{locality}, {city}, AZ, USA"` and call Nominatim's `/search` endpoint **directly from the script** (not via the `/api/geocode` proxy — the proxy needs the app deployed; the script must run standalone). Use the same User-Agent header. Sleep 1.1s between requests. On success, store `lat`, `lon`, **and** the response's `display_name` into `locations.address` (Decision 31c). On failure: insert location with `latitude/longitude/address = null`, append the row to `scripts/migration-failures.json`.
+11. **Geocoding:** for each location, build a query like `"{locality}, {city}, AZ, USA"` and call `geocodeSearch` from `lib/geocode.ts` (Photon-backed) **directly from the script** (not via the `/api/geocode` proxy — the proxy needs the app deployed; the script must run standalone). The 250ms in-process queue applies. On success, store `latitude`, `longitude`, **and** the composed `display_name` into `locations.address` (Decision 31c). On failure: insert location with `latitude/longitude/address = null`, append the row to `scripts/migration-failures.json`.
 12. **Visited_at:** stays NULL for all migrated rows (Decision 23) — no row-order inference performed.
 13. **Photo URL:** stays NULL for all migrated rows; the source sheet has no photos.
 14. **Cuisine emoji audit:** at the end of the script, log any cuisines that were inserted into the `cuisines` table with the fallback `🍽️` emoji — so you can edit them before they show up as fallbacks in the UI.
@@ -339,8 +340,7 @@ All migrated entries get `status = 'visited'`; `want_to_try` is reserved for new
 ```
 /app
   /(public)
-    page.tsx                  # list view
-    /map/page.tsx
+    page.tsx                  # list view (also hosts ?view=cards|table|map)
     /stats/page.tsx
     /[slug]/page.tsx          # detail view
   /(admin)
@@ -352,7 +352,7 @@ All migrated entries get `status = 'visited'`; `want_to_try` is reserved for new
     /logout/route.ts
     _actions.ts               # signIn (signInWithPassword)
   /api
-    /geocode/route.ts         # server-side Nominatim proxy with queue + Runtime Cache
+    /geocode/route.ts         # server-side Photon proxy with queue + in-memory cache
   layout.tsx                  # ThemeProvider, Header, sonner Toaster, metadata
   error.tsx                   # global error boundary
   loading.tsx                 # default page skeleton
@@ -389,7 +389,7 @@ All migrated entries get `status = 'visited'`; `want_to_try` is reserved for new
   cuisines.ts                 # seed CUISINE_EMOJI map + fallback helper (DB-canonical post-migration)
   slug.ts                     # kebab-case + forbidden-list (kept in sync with DB CHECK)
   rating.ts                   # star characters <-> int
-  geocode.ts                  # low-level Nominatim wrapper with 1.1s queue (used by proxy + migration)
+  geocode.ts                  # low-level Photon wrapper with 250ms queue (used by proxy + migration)
   utils.ts                    # cn() etc.
 
 /scripts
@@ -409,7 +409,7 @@ next.config.ts                # cacheComponents: true
 
 ## Loading, Error, and Empty States
 
-- **Loading:** `app/loading.tsx` (generic page skeleton — rarely seen due to caching). `app/map/loading.tsx` (full-bleed gray rectangle for the map). Form buttons use RHF `formState.isSubmitting` for spinner + disable. Autocomplete dropdown shows inline spinner during `isPending`.
+- **Loading:** `app/loading.tsx` (generic page skeleton — rarely seen due to caching). The Map tab swaps to a full-bleed skeleton inside the list page while the map component dynamically imports. Form buttons use RHF `formState.isSubmitting` for spinner + disable. Autocomplete dropdown shows inline spinner during `isPending`.
 - **Errors:** `app/error.tsx` (client component) for unexpected RSC/render errors. Server-action failures surface via `sonner` `toast.error(...)`. Network failures in autocomplete: show "Couldn't load suggestions" inline with retry.
 - **Empty states:** see per-view sections above.
 
@@ -442,14 +442,14 @@ Reads are public. Writes are protected by:
 ## Acceptance Criteria
 
 - [ ] All non-empty CSV rows imported with correct ratings, cuisines, statuses, occasions, and locations.
-- [ ] `is_chain` is `true` for every restaurant whose CSV row mentioned "Chain"; chain rows with no specific branch listed have zero locations.
-- [ ] All migrated `vegetarian` values are `'yes'`, `'no'`, or NULL — no `'not_sure'` literal anywhere; same for `halal`.
+- [ ] Chain rows with no specific branch listed import with zero locations (a valid state).
+- [ ] All migrated `vegetarian` values are `'yes'`, `'no'`, or NULL — no `'not_sure'` literal anywhere.
 - [ ] Migrated `occasion` values are exactly `Quick`, `Casual`, `Elevated`, `Fine Dine`, or NULL.
 - [ ] Cuisines table is seeded; every restaurant's `cuisine[]` values exist in `cuisines.name`; the integrity trigger rejects writes with unknown cuisines.
 - [ ] `Burger` (singular) is the canonical form; no `Burgers` rows exist anywhere.
 - [ ] Cuisine values stored without emoji characters; UI joins emoji from `cuisines.emoji` at render time.
 - [ ] Migration script's "fallback emoji" report is empty (or the gaps are resolved before deploy).
-- [ ] List view filters and search work and combine correctly (multi-select filters AND across categories, OR within); the new filters (occasion, wallet, halal, hide-chains) are functional.
+- [ ] List view filters and search work and combine correctly (multi-select filters AND across categories, OR within); the new filters (occasion, wallet) are functional.
 - [ ] List filter/sort/search state synced to URL via nuqs; refresh preserves state; back button undoes filter changes.
 - [ ] List sort by "Recently visited" orders by `visited_at desc nulls last`.
 - [ ] Map view renders every location with the right popup; `want_to_try` pins are visually distinct from visited pins.
@@ -460,7 +460,7 @@ Reads are public. Writes are protected by:
 - [ ] Address autocomplete returns suggestions; selecting one prefills `latitude`, `longitude`, **and** `address` (from `display_name`); the form's server action does not re-geocode when lat/lng are already provided.
 - [ ] Public visitors can read everything; visiting `/new` or `/[slug]/edit` while unauthenticated redirects to `/auth/login`.
 - [ ] Email + password login works for the admin user; bad credentials surface a generic "invalid email or password" without leaking which one was wrong; logout returns to `/`.
-- [ ] Geocoding only happens at write-time. `/map` view makes zero Nominatim calls.
+- [ ] Geocoding only happens at write-time. The Map view (`?view=map` on `/`) makes zero Photon calls.
 - [ ] `/api/geocode` enforces the 1.1s rate limit even under rapid autocomplete typing.
 - [ ] Server actions throw on `VERCEL_ENV === 'preview'`.
 - [ ] Site is responsive on phone, dark mode toggleable, default respects system preference.
@@ -479,8 +479,8 @@ Eight phases. Don't start the next until the current is green.
 - ✅ Project linked (`vercel link` → `ninadkdev-9482s-projects/dining-guide`); `.vercel/` present
 - ✅ GitHub repo connected to Vercel project (auto-deploys + preview URLs configured)
 - ✅ Supabase project exists (ref `ywnuavooexnxmaonskfh`); MCP wired in `.mcp.json`
-- ✅ `.env.local` contains all 4 vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NOMINATIM_USER_AGENT`
-- ✅ Vercel envs set across Development/Preview/Production for the 3 public-side vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NOMINATIM_USER_AGENT`). Service-role correctly absent.
+- ✅ `.env.local` contains the three Supabase vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- ✅ Vercel envs set across Development/Preview/Production for the two public-side vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`). Service-role correctly absent.
 - ✅ `npx supabase init` ran; `supabase/config.toml` + `supabase/migrations/` directory exist
 - ⏭️ `supabase login` + `supabase link` skipped — replaced by Supabase MCP for migrations & type generation (Decision 16 + MCP availability)
 - ✅ Runtime deps installed: `next-themes nuqs react-leaflet leaflet leaflet-gesture-handling react-hook-form zod @hookform/resolvers papaparse sonner`
@@ -499,9 +499,9 @@ Eight phases. Don't start the next until the current is green.
 - ➕ `supabase/migrations/0003_function_search_path.sql` — added in response to Supabase advisor `function_search_path_mutable`. Pins `search_path = public, pg_temp` on both `set_updated_at()` and `upsert_restaurant_with_locations()` to block search-path injection. Other advisor warnings (`rls_policy_always_true` on the admin write policies, leaked-password protection) are by design — single-admin model, magic-link only.
 - ➕ **Phase 1.5 (post-grilling refresh, Decisions 23–32)** — schema overhaul from the data-model grilling. Applied four new migrations:
   - `0004_cuisines_table.sql` — lookup table (~55 seed rows), RLS, and `check_cuisines_exist()` trigger on `restaurants`.
-  - `0005_restaurants_v2.sql` — drop `'not_sure'` from vegetarian; add `halal`, `is_chain`, `wallet`, `visited_at`, `photo_url`; tighten `rating` to `1..5`; map `occasion` values (Everyday→Quick / Nice-Casual→Elevated / Upscale→Fine Dine) and add CHECK.
+  - `0005_restaurants_v2.sql` — drop `'not_sure'` from vegetarian; add `wallet`, `visited_at`, `photo_url`; tighten `rating` to `1..5`; map `occasion` values (Everyday→Quick / Nice-Casual→Elevated / Upscale→Fine Dine) and add CHECK.
   - `0006_locations_updated_at.sql` — add `updated_at` + trigger.
-  - `0007_upsert_rpc_v2.sql` — extend the upsert RPC to accept the new payload keys (`wallet`, `halal`, `is_chain`, `visited_at`, `photo_url`). Smoke-tested end-to-end: insert with all new fields succeeded; cuisine-integrity trigger correctly rejected an unknown cuisine.
+  - `0007_upsert_rpc_v2.sql` — extend the upsert RPC to accept the new payload keys (`wallet`, `visited_at`, `photo_url`). Smoke-tested end-to-end: insert with all new fields succeeded; cuisine-integrity trigger correctly rejected an unknown cuisine.
   - Types regenerated → `lib/supabase/database.types.ts`.
   - Advisors re-run after the refresh: no new security issues. One new performance note (`multiple_permissive_policies` on the three `*_admin_write` policies due to `FOR ALL` overlapping with `*_public_read` SELECT) — cosmetic at this scale, optional 5-line follow-up migration could split admin policies into explicit INSERT/UPDATE/DELETE.
 - ✅ Types generated via Supabase MCP `generate_typescript_types` → `lib/supabase/database.types.ts`. Both `lib/supabase/client.ts` and `server.ts` now type-parameterize as `createBrowserClient<Database>` / `createServerClient<Database>`.
@@ -531,15 +531,15 @@ Eight phases. Don't start the next until the current is green.
 ### Phase 3 — CSV migration (need data for next views)
 
 - **Manual prework:** open `scripts/data/Dining Guide - List.csv` and clean the 19 multi-location rows per the "Pre-migration CSV cleanup" rules above. Estimated 10 minutes.
-- `lib/geocode.ts` (Nominatim wrapper with 1.1s queue)
-- `scripts/migrate-csv.ts` — implements rules 1–15 in §Data Migration including: cuisines-table seeding before restaurant inserts, occasion remapping, `is_chain` detection, locality verbatim preservation, `display_name` capture from Nominatim.
+- `lib/geocode.ts` (Photon wrapper with 250ms queue)
+- `scripts/migrate-csv.ts` — implements rules 1–15 in §Data Migration including: cuisines-table seeding before restaurant inserts, occasion remapping, chain-token handling, locality verbatim preservation, `display_name` composition from Photon's structured properties.
 - Place CSV at `scripts/data/Dining Guide - List.csv`
 - Run `npx tsx scripts/migrate-csv.ts --clean`; review the fallback-emoji report and the failures log; edit any cuisine emojis still showing 🍽️.
 
 ### Phase 4 — Map + detail
 
 - `<RestaurantMap>` (react-leaflet, custom divIcons, gesture-handling toggle)
-- `/map` (gestureHandling off)
+- `?view=map` tab on `/` (gestureHandling off — single-finger pan is fine when the map owns the column)
 - `/[slug]` detail + mini-map (gestureHandling on)
 
 ### Phase 5 — Stats
@@ -550,7 +550,7 @@ Eight phases. Don't start the next until the current is green.
 ### Phase 6 — CRUD
 
 - `app/api/geocode/route.ts` (proxy + queue + Runtime Cache)
-- `lib/schemas/restaurant.ts` (Zod) — covers the new fields: `wallet`, `halal`, `is_chain`, `visited_at`, `photo_url`, plus the cuisine-array and occasion enum constraints.
+- `lib/schemas/restaurant.ts` (Zod) — covers the new fields: `wallet`, `visited_at`, `photo_url`, `permanently_closed`, plus the cuisine-array and occasion enum constraints.
 - `lib/schemas/cuisine.ts` (Zod) — the create-cuisine dialog's name + emoji validation.
 - `app/(admin)/_actions/restaurants.ts` (with preview-env write block) — extended to handle photo upload/delete to the `restaurant-photos` Supabase Storage bucket.
 - `app/(admin)/_actions/cuisines.ts` — `createCuisine` server action used by the inline dialog; calls `updateTag('cuisines')`.
@@ -591,17 +591,17 @@ Locked decisions from the design grilling. Each entry: chosen option + one-line 
 | 6   | Atomicity                                   | Postgres RPC `upsert_restaurant_with_locations`                                                                                                                                                                                                                                                                                               | True transactions; clean two-table edit logic in SQL.                                                                                                                                                |
 | 7   | Form architecture                           | RHF + Zod via shadcn `<Form>`                                                                                                                                                                                                                                                                                                                 | `useFieldArray` for dynamic locations; shared Zod schemas.                                                                                                                                           |
 | 8   | Geocoding placement                         | Server-side `/api/geocode` proxy + client autocomplete                                                                                                                                                                                                                                                                                        | Keeps User-Agent server-only; better UX than blur-to-geocode.                                                                                                                                        |
-| 9   | Geocoding rate-limit                        | In-memory 1.1s queue + Vercel Runtime Cache                                                                                                                                                                                                                                                                                                   | Honors Nominatim policy; cache helps repeat lookups + migration re-runs.                                                                                                                             |
+| 9   | Geocoding rate-limit                        | In-process 250ms queue + module-level response cache                                                                                                                                                                                                                                                                                          | Stays inside Photon's "reasonable use" expectation; cache helps repeat lookups + migration re-runs.                                                                                                  |
 | 10  | Map library                                 | `react-leaflet` v5 + dynamic import                                                                                                                                                                                                                                                                                                           | Declarative, idiomatic; handles React-lifecycle pitfalls.                                                                                                                                            |
 | 11  | Slugs                                       | Forbidden list `map/stats/new/api/auth`; manual regex slugify; no slug-change redirects; RPC retry loop for collisions                                                                                                                                                                                                                        | Zero-dep slug; defense-in-depth via DB CHECK; YAGNI on redirect tables.                                                                                                                              |
 | 12  | Caching                                     | `cacheComponents: true`, single `restaurants` tag, `cacheLife('weeks')`, `updateTag` in actions                                                                                                                                                                                                                                               | Static-render speed for public; instant read-your-own-writes for admin.                                                                                                                              |
 | 13  | List filters                                | Server fetches all rows (cached); client filter island; URL state via nuqs; substring search                                                                                                                                                                                                                                                  | Right shape for hundreds-of-rows scale.                                                                                                                                                              |
 | 14  | Stats                                       | Server pre-aggregates; shadcn Charts; cuisine = horizontal bar (not pie); donut for visited/want-to-try                                                                                                                                                                                                                                       | Better data viz than the original pie spec; smaller payloads.                                                                                                                                        |
-| 15  | Migration script                            | `tsx`; `--clean` flag with confirmation; direct Nominatim (not via proxy); failures log                                                                                                                                                                                                                                                       | Safe-by-default; standalone (no app dependency).                                                                                                                                                     |
+| 15  | Migration script                            | `tsx`; `--clean` flag with confirmation; calls `lib/geocode.ts` directly (not via the proxy); failures log                                                                                                                                                                                                                                    | Safe-by-default; standalone (no app dependency).                                                                                                                                                     |
 | 16  | Schema                                      | Supabase CLI migrations; +`updated_at` trigger; +slug regex/forbidden CHECK; +name non-empty; +lat/lng range; gen types                                                                                                                                                                                                                       | Version-controlled schema; defense in depth.                                                                                                                                                         |
 | 16b | Cuisine storage (corrected)                 | Canonical strings only in DB; emoji map in `lib/cuisines.ts`; CSV migration strips emojis                                                                                                                                                                                                                                                     | Clean data; no mojibake; emoji map editable in code.                                                                                                                                                 |
 | 17  | UI shell                                    | Sticky top header; dark mode w/ toggle (`next-themes`); responsive card grid; custom `<StarRating>`; shadcn Combobox for cuisine; filled/outlined visited/want-to-try indicator                                                                                                                                                               | In-grain with shadcn; minimal new deps.                                                                                                                                                              |
-| 18  | Deployment                                  | Single Supabase project for all envs; preview-env write block in actions; server-only `NOMINATIM_USER_AGENT`; install Vercel CLI; GitHub integration                                                                                                                                                                                          | Lowest setup cost; preview previews are read-only.                                                                                                                                                   |
+| 18  | Deployment                                  | Single Supabase project for all envs; preview-env write block in actions; install Vercel CLI; GitHub integration                                                                                                                                                                                                                              | Lowest setup cost; preview previews are read-only.                                                                                                                                                   |
 | 19  | Loading/error/empty                         | `loading.tsx` + Suspense + RHF `isSubmitting`; `app/error.tsx` + sonner toasts; specific empty states per view                                                                                                                                                                                                                                | Standard Next 16 patterns; sonner mounted once.                                                                                                                                                      |
 | 20  | Testing & observability                     | Vitest for parsing helpers + 1 Playwright smoke; Vercel logs + sonner + Web Analytics; no Sentry initially                                                                                                                                                                                                                                    | Cheap targeted tests; minimal observability surface.                                                                                                                                                 |
 | 21  | UX gotchas                                  | `leaflet-gesture-handling` plugin (mini-map only); shadcn `<AlertDialog>` for delete confirmation                                                                                                                                                                                                                                             | Avoids mobile scroll trap; idiomatic confirm pattern.                                                                                                                                                |
@@ -612,10 +612,8 @@ Locked decisions from the design grilling. Each entry: chosen option + one-line 
 | 26  | Cuisine integrity                           | Lookup table `cuisines (name PK, emoji)` as source of truth; trigger enforces `restaurants.cuisine[]` ⊂ `cuisines.name`                                                                                                                                                                                                                       | Eliminates typo drift; makes renames safe; centralizes emoji.                                                                                                                                        |
 | 26b | Cuisine canonicalization                    | `Burger` (singular) is canonical; the seed list aligns                                                                                                                                                                                                                                                                                        | User preference — matches the source CSV verbatim.                                                                                                                                                   |
 | 26c | Cuisine create UX                           | shadcn Combobox with confirm-to-add; inline dialog has name + emoji `<Input>`; emoji defaults to 🍽️ if blank                                                                                                                                                                                                                                  | Inline create avoids a separate admin page; emoji-at-create avoids stale defaults.                                                                                                                   |
-| 27  | Halal as dietary marker                     | Add `halal text check (halal in ('yes','no')) NULL` mirroring `vegetarian`                                                                                                                                                                                                                                                                    | Two markers is YAGNI-appropriate; junction-table refactor deferred to 4+ markers.                                                                                                                    |
-| 28  | Chain flag                                  | Add `is_chain boolean not null default false`. Migration sets true when CSV mentions "Chain"                                                                                                                                                                                                                                                  | Preserves user's classification work; enables "hide chains" filter.                                                                                                                                  |
 | 29  | Locality semantics                          | `locality` is freeform prose, never split. **City drives location count.** Pre-edit only the rows where `City="Chain"` alone (add the actual cities); locality stays verbatim and is shared across the city splits                                                                                                                            | Honors actual usage; minimizes manual cleanup; lossy locality duplication is cosmetic.                                                                                                               |
 | 30  | Spend / vibe two-axis                       | Replace `occasion` (free text) with two enums: `occasion in ('Quick','Casual','Elevated','Fine Dine')` + `wallet in ('Cheap','Normal','Splurge','Big night')`                                                                                                                                                                                 | Avoids inflation-broken $$$ system; separates conflated dimensions.                                                                                                                                  |
-| 31  | Schema cleanups                             | (a) drop `'not_sure'` from `vegetarian`, use NULL; (b) tighten `rating` to `1..5`; (c) keep `address` on `locations`, populate from Nominatim `display_name`; (d) `updated_at` on `locations`                                                                                                                                                 | Removes redundant states; aligns ranges with reality; provides street-level recall.                                                                                                                  |
+| 31  | Schema cleanups                             | (a) drop `'not_sure'` from `vegetarian`, use NULL; (b) tighten `rating` to `1..5`; (c) keep `address` on `locations`, populate from the Photon-composed display label; (d) `updated_at` on `locations`                                                                                                                                        | Removes redundant states; aligns ranges with reality; provides street-level recall.                                                                                                                  |
 | 32  | Photos                                      | Add `photo_url text NULL` on `restaurants` + Supabase Storage bucket `restaurant-photos`. Single hero photo; gallery deferred                                                                                                                                                                                                                 | Visual recall is core to a dining guide; opportunistic add as you re-encounter places.                                                                                                               |
 | 33  | Auth: password over magic link (2026-05-10) | Switched `/auth/login` from `signInWithOtp` to `signInWithPassword`. Deleted `/auth/callback`. Login surfaces a generic `invalid-credentials` error to avoid email enumeration. `next` query param validated to start with `/`. Leaked-password protection enabled in Supabase. Existing admin user gets a password via dashboard reset flow. | Magic-link round-trip got tedious; password manager fills both fields in one click; works on devices where the admin inbox isn't logged in. Signups stay disabled, so the threat model is unchanged. |
