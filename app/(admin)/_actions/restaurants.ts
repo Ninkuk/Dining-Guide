@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { restaurantSchema, type Restaurant } from "@/lib/schemas/restaurant";
 import { geocodeSearch } from "@/lib/geocode";
@@ -81,7 +81,7 @@ export async function createRestaurant(input: unknown): Promise<ActionResult<{ s
   }
 
   const finalSlug = await fetchSlugById(Number(data));
-  redirect(`/${finalSlug ?? enriched.slug}`);
+  redirect(`/${finalSlug ?? enriched.slug}`, RedirectType.replace);
 }
 
 export async function updateRestaurant(input: unknown): Promise<ActionResult<{ slug: string }>> {
@@ -117,7 +117,7 @@ export async function updateRestaurant(input: unknown): Promise<ActionResult<{ s
     return { ok: false, error: error.message };
   }
 
-  redirect(`/${enriched.slug}`);
+  redirect(`/${enriched.slug}`, RedirectType.replace);
 }
 
 export async function deleteRestaurant(formData: FormData): Promise<void> {
@@ -151,7 +151,7 @@ export async function deleteRestaurant(formData: FormData): Promise<void> {
     throw new Error(error.message);
   }
 
-  redirect("/");
+  redirect("/", RedirectType.replace);
 }
 
 /**

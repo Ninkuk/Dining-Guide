@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -18,7 +18,7 @@ export async function signIn(formData: FormData) {
   const next = nextRaw.startsWith("/") ? nextRaw : "/";
 
   if (!email || !password) {
-    redirect("/auth/login?error=missing-credentials");
+    redirect("/auth/login?error=missing-credentials", RedirectType.replace);
   }
 
   const supabase = await createClient();
@@ -26,8 +26,8 @@ export async function signIn(formData: FormData) {
 
   if (error) {
     console.error("signInWithPassword failed", error);
-    redirect("/auth/login?error=invalid-credentials");
+    redirect("/auth/login?error=invalid-credentials", RedirectType.replace);
   }
 
-  redirect(next);
+  redirect(next, RedirectType.replace);
 }
