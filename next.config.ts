@@ -5,7 +5,6 @@ const supabaseHost = new URL(
 ).hostname;
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
   images: {
     remotePatterns: [
       {

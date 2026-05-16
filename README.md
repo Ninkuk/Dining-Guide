@@ -66,8 +66,8 @@ app/
   auth/    login + logout
 components/    UI + shadcn primitives in ui/
 lib/
-  supabase/    client.ts, server.ts, anon.ts (cache-safe), proxy.ts (Next 16 rename of middleware)
-  queries/    cached data fetchers ('use cache' + cacheTag)
+  supabase/    client.ts, server.ts, anon.ts (cookie-free for public reads), proxy.ts (Next 16 rename of middleware)
+  queries/    server-side data fetchers
   schemas/    Zod schemas shared by RHF + server actions
   cuisines.ts, slug.ts, rating.ts, geocode.ts
 scripts/migrate-csv.ts    one-time CSV importer

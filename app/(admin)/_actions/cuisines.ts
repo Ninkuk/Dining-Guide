@@ -1,6 +1,5 @@
 'use server'
 
-import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { cuisineSchema } from '@/lib/schemas/cuisine'
 
@@ -44,7 +43,6 @@ export async function createCuisine(
     return { ok: false, error: error.message }
   }
 
-  updateTag('cuisines')
   return { ok: true, data: { name: data.name, emoji: data.emoji } }
 }
 
@@ -102,9 +100,7 @@ export async function deleteCuisine(
   const { error: delErr } = await supabase.from('cuisines').delete().eq('name', name)
   if (delErr) return { ok: false, error: delErr.message }
 
-  updateTag('cuisines')
   const untaggedFrom = (rows ?? []).length
-  if (untaggedFrom > 0) updateTag('restaurants')
 
   return { ok: true, data: { untaggedFrom } }
 }

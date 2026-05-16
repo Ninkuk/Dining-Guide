@@ -1,7 +1,6 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { restaurantSchema, type Restaurant } from '@/lib/schemas/restaurant'
 import { geocodeSearch } from '@/lib/geocode'
@@ -77,7 +76,6 @@ export async function createRestaurant(input: unknown): Promise<ActionResult<{ s
     return { ok: false, error: error.message }
   }
 
-  updateTag('restaurants')
   const finalSlug = await fetchSlugById(Number(data))
   redirect(`/${finalSlug ?? enriched.slug}`)
 }
@@ -111,7 +109,6 @@ export async function updateRestaurant(input: unknown): Promise<ActionResult<{ s
     return { ok: false, error: error.message }
   }
 
-  updateTag('restaurants')
   redirect(`/${enriched.slug}`)
 }
 
@@ -146,7 +143,6 @@ export async function deleteRestaurant(formData: FormData): Promise<void> {
     throw new Error(error.message)
   }
 
-  updateTag('restaurants')
   redirect('/')
 }
 
@@ -179,7 +175,6 @@ export async function replacePhoto(
     return { ok: false, error: error.message }
   }
 
-  updateTag('restaurants')
   return { ok: true }
 }
 

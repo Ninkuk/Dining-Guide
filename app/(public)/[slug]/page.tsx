@@ -254,9 +254,8 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
 }
 
 /**
- * Auth-aware admin controls (Edit + Delete). Lives OUTSIDE the `'use cache'`
- * boundary because it reads cookies; the rest of the page is cacheable. Renders
- * nothing for the public — both the markup and the affordance stay hidden.
+ * Auth-aware admin controls (Edit + Delete). Renders nothing for the public —
+ * both the markup and the affordance stay hidden.
  */
 async function AdminActions({
   slug,

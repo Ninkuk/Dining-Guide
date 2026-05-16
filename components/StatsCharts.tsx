@@ -1,7 +1,7 @@
 'use client'
 
-// All charts in /stats. Takes pre-aggregated data from the cached getStatsData()
-// — zero client-side aggregation. Recharts under the hood via shadcn's `Chart`
+// All charts in /stats. Takes pre-aggregated data from getStatsData() — zero
+// client-side aggregation. Recharts under the hood via shadcn's `Chart`
 // primitives.
 
 import {

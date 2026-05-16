@@ -28,9 +28,9 @@ import { Badge } from '@/components/ui/badge'
 // react-leaflet drives the Leaflet map and its layers from React effects:
 // <MapContainer> creates/`.remove()`s the map, each <TileLayer>/<Marker>/…
 // `map.addLayer()`s / `map.removeLayer()`s itself, and our own <FitBounds>
-// `map.setView()`s. Under React 19 StrictMode + Next's `cacheComponents` +
-// `next/dynamic`, quickly navigating between pages that both render a map
-// interleaves these effects badly:
+// `map.setView()`s. Under React 19 StrictMode + `next/dynamic`, quickly
+// navigating between pages that both render a map interleaves these effects
+// badly:
 //
 //  • a *deleted* tree's deferred `map.remove()` runs after a fresh map already
 //    claimed the same container <div> → "Map container is being reused by

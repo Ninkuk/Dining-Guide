@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from 'next/cache'
 import { createAnonClient } from '@/lib/supabase/anon'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -9,18 +8,8 @@ export type RestaurantWithLocations = RestaurantRow & {
   locations: LocationRow[]
 }
 
-const CACHE_TAG = 'restaurants'
-
-/**
- * All restaurants + nested locations, ordered by name. Cached on a single tag
- * so any mutation (`updateTag('restaurants')` from a server action) refreshes
- * every consumer at once.
- */
+/** All restaurants + nested locations, ordered by name. */
 export async function getAllRestaurants(): Promise<RestaurantWithLocations[]> {
-  'use cache'
-  cacheTag(CACHE_TAG)
-  cacheLife('weeks')
-
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from('restaurants')
@@ -37,10 +26,6 @@ export async function getAllRestaurants(): Promise<RestaurantWithLocations[]> {
 export async function getRestaurantBySlug(
   slug: string
 ): Promise<RestaurantWithLocations | null> {
-  'use cache'
-  cacheTag(CACHE_TAG)
-  cacheLife('weeks')
-
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from('restaurants')
@@ -67,10 +52,6 @@ export type MapPoint = {
 
 /** Flat list of geocoded points for the /map view. Skips locations missing lat/lng. */
 export async function getForMap(): Promise<MapPoint[]> {
-  'use cache'
-  cacheTag(CACHE_TAG)
-  cacheLife('weeks')
-
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from('locations')
@@ -118,12 +99,8 @@ export type StatsData = {
   totalRestaurants: number
 }
 
-/** Pre-aggregated stats for /stats. Reuses the cached getAllRestaurants payload. */
+/** Pre-aggregated stats for /stats. */
 export async function getStatsData(): Promise<StatsData> {
-  'use cache'
-  cacheTag(CACHE_TAG)
-  cacheLife('weeks')
-
   const all = await getAllRestaurants()
 
   const cuisineCounts: Record<string, number> = {}
