@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { BackLink } from "@/components/BackLink";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RestaurantForm } from "@/components/admin/RestaurantForm";
+import { todayDateOnly } from "@/lib/dates";
 import { getCuisines } from "@/lib/queries/cuisines";
 import type { RestaurantInput } from "@/lib/schemas/restaurant";
 
@@ -20,7 +21,7 @@ const DEFAULTS: RestaurantInput = {
   vegetarian: null,
   permanently_closed: false,
   status: "visited",
-  visited_at: new Date().toISOString().slice(0, 10),
+  visited_at: todayDateOnly(),
   photo_url: null,
   notes: null,
   pros: null,

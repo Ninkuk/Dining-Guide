@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { RestaurantWithLocations } from "@/lib/queries/restaurants";
 
@@ -7,14 +8,6 @@ type Attribute = {
   /** `null` ⇒ render the pill grayed out with "Unknown". */
   value: string | null;
 };
-
-function formatVisitedDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function yesNo(value: string | null): string | null {
   if (value === "yes") return "Yes";
@@ -40,7 +33,7 @@ export function RestaurantAttributePills({
       ? {
           emoji: "📅",
           label: "Visited",
-          value: r.visited_at ? formatVisitedDate(r.visited_at) : null,
+          value: r.visited_at ? formatDateOnly(r.visited_at) : null,
         }
       : { emoji: "📅", label: "Status", value: "Want to try" },
   ];

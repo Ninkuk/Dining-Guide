@@ -9,6 +9,7 @@ import { StatusIndicator } from "@/components/StatusIndicator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCuisineEmoji } from "@/lib/cuisines";
+import { formatDateOnly } from "@/lib/dates";
 import { googleMapsSearchUrl, googleMapsUrl } from "@/lib/maps";
 import { getRestaurantBySlug } from "@/lib/queries/restaurants";
 import { restaurantDescription, socialMetadata } from "@/lib/seo";
@@ -81,14 +82,7 @@ async function DetailBody({ params }: { params: Promise<Params> }) {
     permanently_closed: r.permanently_closed,
   }));
 
-  const visitedDate =
-    r.status === "visited" && r.visited_at
-      ? new Date(r.visited_at).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
-      : null;
+  const visitedDate = r.status === "visited" && r.visited_at ? formatDateOnly(r.visited_at) : null;
 
   const noteBlocks = NOTE_BLOCKS.flatMap((block) => {
     const value = r[block.key];

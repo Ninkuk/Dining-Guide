@@ -4,6 +4,7 @@
 // The shape mirrors the upsert RPC's expected JSONB payload.
 
 import { z } from "zod";
+import { serializeDateOnly } from "@/lib/dates";
 import { FORBIDDEN_SLUGS } from "@/lib/slug";
 
 const OCCASIONS = ["Quick", "Casual", "Elevated", "Fine Dine"] as const;
@@ -92,7 +93,7 @@ export const restaurantSchema = z.object({
     .optional()
     .transform((v) => {
       if (!v) return null;
-      if (v instanceof Date) return v.toISOString().slice(0, 10);
+      if (v instanceof Date) return serializeDateOnly(v);
       return v;
     }),
   photo_url: z
