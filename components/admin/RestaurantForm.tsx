@@ -118,7 +118,7 @@ export function RestaurantForm({
       const res =
         mode === "create"
           ? await createRestaurant(values, { fromSuggestionId })
-          : await updateRestaurant(values);
+          : await updateRestaurant(values, { fromSuggestionId });
       if (res && "ok" in res && !res.ok) {
         toast.error(res.error);
         if (res.fields) {

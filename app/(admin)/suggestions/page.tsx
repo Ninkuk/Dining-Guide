@@ -208,6 +208,11 @@ async function Queue({ searchParams }: { searchParams: Promise<SearchParams> }) 
                       <Link href={`/new?from_suggestion=${s.id}`}>Open</Link>
                     </Button>
                   ) : null}
+                  {!isRejected && s.kind === "correction" && target ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/${target.slug}/edit?from_suggestion=${s.id}`}>Open</Link>
+                    </Button>
+                  ) : null}
                   {!isRejected ? <RejectSuggestionButton id={s.id} /> : null}
                 </div>
               </li>
