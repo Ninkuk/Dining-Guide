@@ -3,8 +3,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./database.types";
 
 // Paths that require an authenticated admin (Decision 4).
-// Patterns: `/new`, `/<slug>/edit`. Public reads stay public.
-const WRITE_ROUTE_PATTERNS: readonly RegExp[] = [/^\/new\/?$/, /^\/[^/]+\/edit\/?$/];
+// Patterns: `/new`, `/<slug>/edit`, and the Suggestion admin queue
+// (`/suggestions` and sub-paths). The public submit routes — `/suggest`,
+// `/<slug>/suggest` — are intentionally NOT guarded.
+const WRITE_ROUTE_PATTERNS: readonly RegExp[] = [
+  /^\/new\/?$/,
+  /^\/[^/]+\/edit\/?$/,
+  /^\/suggestions(\/.*)?$/,
+];
 
 function isWriteRoute(pathname: string): boolean {
   return WRITE_ROUTE_PATTERNS.some((re) => re.test(pathname));

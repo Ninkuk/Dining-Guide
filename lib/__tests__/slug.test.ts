@@ -42,7 +42,15 @@ describe("slugify", () => {
 
 describe("FORBIDDEN_SLUGS / isForbiddenSlug", () => {
   it("matches the values pinned in the DB CHECK constraint", () => {
-    expect([...FORBIDDEN_SLUGS]).toEqual(["map", "stats", "new", "api", "auth"]);
+    expect([...FORBIDDEN_SLUGS]).toEqual([
+      "map",
+      "stats",
+      "new",
+      "api",
+      "auth",
+      "suggest",
+      "suggestions",
+    ]);
   });
 
   it("rejects each forbidden slug", () => {

@@ -67,6 +67,59 @@ export type Database = {
           },
         ];
       };
+      suggestions: {
+        Row: {
+          admin_note: string | null;
+          anything_else: string | null;
+          base_updated_at: string | null;
+          created_at: string;
+          decided_at: string | null;
+          id: number;
+          kind: string;
+          payload: Json;
+          photo_path: string | null;
+          status: string;
+          submitter_name: string;
+          target_restaurant_id: number | null;
+        };
+        Insert: {
+          admin_note?: string | null;
+          anything_else?: string | null;
+          base_updated_at?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          id?: never;
+          kind: string;
+          payload?: Json;
+          photo_path?: string | null;
+          status?: string;
+          submitter_name: string;
+          target_restaurant_id?: number | null;
+        };
+        Update: {
+          admin_note?: string | null;
+          anything_else?: string | null;
+          base_updated_at?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          id?: never;
+          kind?: string;
+          payload?: Json;
+          photo_path?: string | null;
+          status?: string;
+          submitter_name?: string;
+          target_restaurant_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "suggestions_target_restaurant_id_fkey";
+            columns: ["target_restaurant_id"];
+            isOneToOne: false;
+            referencedRelation: "restaurants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       restaurants: {
         Row: {
           cons: string | null;

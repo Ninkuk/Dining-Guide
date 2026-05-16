@@ -1,12 +1,20 @@
 // Slug generation and validation.
 //
-// Kept in sync with the Postgres CHECK constraints in
-// supabase/migrations/0001_init.sql:
-//   - restaurants_slug_kebab        (regex)
-//   - restaurants_slug_not_reserved (FORBIDDEN_SLUGS)
+// Kept in sync with the Postgres CHECK constraints on `restaurants.slug`:
+//   - restaurants_slug_kebab        (regex, set in 0001_init.sql)
+//   - restaurants_slug_not_reserved (FORBIDDEN_SLUGS — most recently rebuilt
+//                                    in 0010_suggestions_table.sql)
 // If you change either side, change both.
 
-export const FORBIDDEN_SLUGS = ["map", "stats", "new", "api", "auth"] as const;
+export const FORBIDDEN_SLUGS = [
+  "map",
+  "stats",
+  "new",
+  "api",
+  "auth",
+  "suggest",
+  "suggestions",
+] as const;
 export type ForbiddenSlug = (typeof FORBIDDEN_SLUGS)[number];
 
 const KEBAB_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
